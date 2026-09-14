@@ -1,8 +1,9 @@
 import {
   APP_VERSION,
+  ALERT_FAILURE_THRESHOLD,
   DEFAULT_TIMEOUT_MS,
   isTelegramConfigured,
-  TELEGRAM_FAILURE_THRESHOLD
+  MONITOR_INTERVAL_MINUTES
 } from "@/lib/env";
 import { runHealthCheck } from "@/lib/health-check";
 import { getStorageInfo } from "@/lib/kv-store";
@@ -35,13 +36,13 @@ function buildAlertEvents(store: MonitorStore, current: HealthPayload): AlertEve
     const previousFailureCount = countConsecutiveFailures(store, result.id);
     const failureCount = result.state === "down" ? previousFailureCount + 1 : 0;
 
-    if (before && before.state !== "down" && result.state === "down") {
+    if (before && before.state !== "down" && result.state === "down" && ALERT_FAILURE_THRESHOLD > 1) {
       events.push({
         id: `${result.id}-${currentTime}-down`,
         siteId: result.id,
         siteName: result.name,
         type: "down",
-        message: `[DOWN] ${result.name} 장애 감지 (${result.statusCode ?? result.detail})`,
+        message: `[장애] ${result.name} 응답 실패 (${result.statusCode ?? result.detail})`,
         checkedAt: currentTime,
         statusCode: result.statusCode,
         failureCount
@@ -50,13 +51,13 @@ function buildAlertEvents(store: MonitorStore, current: HealthPayload): AlertEve
 
     // Initial checks count too, so an already-unavailable site receives an
     // external alert once it has failed the configured number of times.
-    if (result.state === "down" && failureCount === TELEGRAM_FAILURE_THRESHOLD) {
+    if (result.state === "down" && failureCount === ALERT_FAILURE_THRESHOLD) {
       events.push({
         id: `${result.id}-${currentTime}-failure-threshold`,
         siteId: result.id,
         siteName: result.name,
         type: "failure-threshold",
-        message: `[ALERT] ${result.name} ${failureCount}회 연속 점검 실패 (${result.statusCode ?? result.detail})`,
+        message: `[장애] ${result.name} ${failureCount}회 연속 응답 실패 (${result.statusCode ?? result.detail})`,
         checkedAt: currentTime,
         statusCode: result.statusCode,
         failureCount
@@ -65,13 +66,13 @@ function buildAlertEvents(store: MonitorStore, current: HealthPayload): AlertEve
 
     // A recovery is useful externally only if the failed incident previously
     // reached the notification threshold.
-    if (before?.state === "down" && result.state === "up" && previousFailureCount >= TELEGRAM_FAILURE_THRESHOLD) {
+    if (before?.state === "down" && result.state === "up" && previousFailureCount >= ALERT_FAILURE_THRESHOLD) {
       events.push({
         id: `${result.id}-${currentTime}-recovered`,
         siteId: result.id,
         siteName: result.name,
         type: "recovered",
-        message: `[RECOVERED] ${result.name} 정상 복구 (${result.statusCode ?? "OK"})`,
+        message: `[복구] ${result.name} 정상 응답 (${result.statusCode ?? "OK"})`,
         checkedAt: currentTime,
         statusCode: result.statusCode,
         failureCount: previousFailureCount
@@ -93,7 +94,7 @@ async function notifyTelegram(events: AlertEvent[]) {
   }
 
   const lines = [
-    `KOMSCO PulseBoard ${APP_VERSION}`,
+    `KOMSCO Service Monitor ${APP_VERSION}`,
     ...telegramEvents.map((event) => `${event.checkedAt} ${event.message}`)
   ];
 
@@ -135,7 +136,9 @@ export async function readDashboardPayload(): Promise<DashboardPayload> {
     storage: getStorageInfo(),
     alerting: {
       telegramConfigured: isTelegramConfigured(),
-      cronConfigured: Boolean(process.env.CRON_SECRET)
+      cronConfigured: Boolean(process.env.CRON_SECRET),
+      failureThreshold: ALERT_FAILURE_THRESHOLD,
+      monitorIntervalMinutes: MONITOR_INTERVAL_MINUTES
     }
   };
 }

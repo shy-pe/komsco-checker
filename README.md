@@ -6,7 +6,7 @@
 
 - Next.js App Router
 - React 19
-- Vercel Functions + Cron Jobs
+- Vercel Functions + GitHub Actions scheduler
 - Upstash Redis REST storage
 - Telegram Bot API notifications
 
@@ -26,7 +26,9 @@
 - `UPSTASH_REDIS_REST_TOKEN`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
-- `TELEGRAM_FAILURE_THRESHOLD` (기본값: `3`)
+- `ALERT_FAILURE_THRESHOLD` (기본값: `1`)
+- `MONITOR_INTERVAL_MINUTES` (기본값: `5`)
+- `MONITOR_TIMEOUT_MS` (기본값: `8000`)
 
 ## Local Development
 
@@ -46,9 +48,9 @@ npm run build
 
 ## Alerts
 
-- 사이트가 한 번이라도 실패하면 대시보드에 고정 경고와 화면 토스트가 표시됩니다. 경고음은 화면의 설정에서 켜거나 끌 수 있습니다.
-- 텔레그램은 같은 사이트가 연속 3회 실패할 때 한 번 전송하며, 이후 복구되면 복구 알림을 보냅니다. 횟수는 `TELEGRAM_FAILURE_THRESHOLD`로 조정할 수 있습니다.
-- 기본 크론은 5분마다 실행됩니다. Vercel Hobby 플랜은 하루 1회 크론만 지원하므로, 이 주기를 사용하려면 Pro 이상 또는 별도 스케줄러가 필요합니다.
+- 사이트가 한 번 실패하면 대시보드 경고·화면 토스트·경고음·텔레그램 알림이 같은 장애 이벤트를 기준으로 동작합니다.
+- 복구 시에도 화면과 텔레그램에 복구 상태가 표시됩니다. 연속 실패 임계값은 `ALERT_FAILURE_THRESHOLD`로 변경할 수 있습니다.
+- 자동 점검은 GitHub Actions가 5분마다 `/api/cron/health`를 호출합니다. 주기 변경 시 워크플로 스케줄과 `MONITOR_INTERVAL_MINUTES`를 함께 맞춥니다.
 
 ## Current Retention
 

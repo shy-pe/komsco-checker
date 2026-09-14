@@ -1,4 +1,5 @@
 ﻿import { DEFAULT_TIMEOUT_MS } from "@/lib/env";
+import { ALERT_FAILURE_THRESHOLD, MONITOR_INTERVAL_MINUTES } from "@/lib/env";
 import { executeMonitoringCycle, readDashboardPayload } from "@/lib/monitoring";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +49,9 @@ export async function POST(request: Request) {
     },
     alerting: {
       telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
-      cronConfigured: Boolean(process.env.CRON_SECRET)
+      cronConfigured: Boolean(process.env.CRON_SECRET),
+      failureThreshold: ALERT_FAILURE_THRESHOLD,
+      monitorIntervalMinutes: MONITOR_INTERVAL_MINUTES
     }
   }, {
     headers: {

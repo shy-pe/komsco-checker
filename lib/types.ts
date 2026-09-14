@@ -82,5 +82,7 @@ export type DashboardPayload = {
   alerting: {
     telegramConfigured: boolean;
     cronConfigured: boolean;
+    failureThreshold: number;
+    monitorIntervalMinutes: number;
   };
 };

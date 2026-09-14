@@ -10,7 +10,7 @@ import type {
   SiteConfig
 } from "@/lib/types";
 
-const APP_VERSION = "v1.1.0";
+const APP_VERSION = "v1.2.0";
 const SETTINGS_KEY = "komsco-next-pulseboard/settings";
 
 type Settings = {
@@ -44,7 +44,7 @@ type SiteRow = {
 };
 
 const defaultSettings: Settings = {
-  intervalMs: 180000,
+  intervalMs: 300000,
   timeoutMs: 8000,
   autoRefresh: true,
   soundEnabled: true
@@ -373,11 +373,11 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
       </div>
       <section className="hero-panel">
         <div className="hero-copy">
-          <span className="eyebrow">Server DB + Alerts</span>
-          <h1>경영정보 고객사이트 PulseBoard</h1>
+          <span className="eyebrow">SERVICE STATUS MONITOR</span>
+          <h1>고객사이트 서비스 모니터링</h1>
           <p>
-            서버가 사이트를 점검하고 저장소에 이력을 누적합니다. 프론트는 그 결과를 조회하고, 장애나 복구 같은 이벤트는
-            텔레그램으로 발송할 수 있도록 분리된 구조입니다.
+            등록된 고객사이트의 접속 상태와 응답 속도를 정기적으로 확인합니다.
+            장애가 감지되면 화면 경고와 경고음, 텔레그램으로 즉시 알려드립니다.
           </p>
         </div>
         <div className="hero-grid">
@@ -386,15 +386,15 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
             <strong>{APP_VERSION}</strong>
           </div>
           <div className="hero-stat">
-            <span>마지막 저장 시각</span>
+            <span>최근 점검</span>
             <strong>{formatTime(dashboard?.monitor.updatedAt ?? null)}</strong>
           </div>
           <div className="hero-stat">
-            <span>스토리지</span>
-            <strong>{dashboard?.storage.provider === "upstash-rest" ? "Upstash Redis" : "Memory"}</strong>
+            <span>모니터링 주기</span>
+            <strong>{dashboard ? `${dashboard.alerting.monitorIntervalMinutes}분` : "5분"}</strong>
           </div>
           <div className="hero-stat">
-            <span>텔레그램 알림</span>
+            <span>실시간 알림</span>
             <strong>{dashboard?.alerting.telegramConfigured ? "연결됨" : "미설정"}</strong>
           </div>
         </div>
@@ -470,9 +470,8 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
       ) : null}
       {error ? <p className="status-banner danger">{error}</p> : null}
       <p className="status-banner">
-        수동 점검은 서버에서 실행되고 결과도 서버 저장소에 반영됩니다. 상시 모니터링과 텔레그램 이벤트 알림은
-        <code> /api/cron/health </code>
-        엔드포인트를 통해 수행하도록 설계했습니다.
+        자동 모니터링 결과는 {dashboard?.alerting.monitorIntervalMinutes ?? 5}분마다 갱신됩니다.
+        장애 알림은 {dashboard?.alerting.failureThreshold ?? 1}회 실패 시 발송되며, 복구 상태도 함께 안내합니다.
       </p>
 
       <section className="summary-grid">
@@ -564,22 +563,22 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
 
         <aside className="side-stack">
           <section className="side-panel">
-            <h2>운영 상태</h2>
+            <h2>서비스 운영 상태</h2>
             <div className="registry-list">
               <div className="registry-item">
-                <strong>스토리지 연결</strong>
-                <span>{dashboard?.storage.connected ? "연결됨" : "메모리 모드"}</span>
-                <code>{dashboard?.storage.provider ?? "memory"}</code>
+                <strong>점검 이력 저장</strong>
+                <span>{dashboard?.storage.connected ? "정상" : "임시 저장 모드"}</span>
+                <code>{dashboard?.storage.connected ? "운영 데이터 저장 중" : "영구 저장소 연결 필요"}</code>
               </div>
               <div className="registry-item">
-                <strong>크론 인증</strong>
-                <span>{dashboard?.alerting.cronConfigured ? "설정됨" : "미설정"}</span>
-                <code>CRON_SECRET</code>
+                <strong>자동 모니터링</strong>
+                <span>{dashboard?.alerting.cronConfigured ? "활성" : "설정 필요"}</span>
+                <code>{dashboard?.alerting.monitorIntervalMinutes ?? 5}분 간격</code>
               </div>
               <div className="registry-item">
-                <strong>텔레그램</strong>
-                <span>{dashboard?.alerting.telegramConfigured ? "설정됨" : "미설정"}</span>
-                <code>TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID</code>
+                <strong>텔레그램 알림</strong>
+                <span>{dashboard?.alerting.telegramConfigured ? "활성" : "설정 필요"}</span>
+                <code>{dashboard?.alerting.failureThreshold ?? 1}회 실패 시 알림</code>
               </div>
             </div>
           </section>
