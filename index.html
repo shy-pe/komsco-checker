@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>경영정보 고객사이트 PulseBoard</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7f2;
+      --bg-accent: #dff4ee;
+      --bg-warm: #fff1db;
+      --surface: rgba(255, 255, 255, 0.74);
+      --surface-strong: rgba(255, 255, 255, 0.92);
+      --line: rgba(18, 38, 32, 0.1);
+      --text: #193227;
+      --muted: #5f736b;
+      --teal: #0f9b8e;
+      --teal-deep: #0a6b63;
+      --sky: #46a8d8;
+      --gold: #e4a93b;
+      --red: #db5b47;
+      --shadow: 0 20px 60px rgba(22, 53, 39, 0.12);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --font-ui: "Pretendard Variable", "SUIT Variable", "Noto Sans KR", "Segoe UI", sans-serif;
+      --font-display: "Bahnschrift", "Aptos Display", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-ui);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(70, 168, 216, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(228, 169, 59, 0.18), transparent 26%),
+        linear-gradient(180deg, var(--bg-accent), var(--bg) 38%, #eef2eb 100%);
+      min-height: 100vh;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    .shell {
+      width: min(1280px, calc(100% - 24px));
+      margin: 0 auto;
+      padding: 20px 0 48px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      background:
+        linear-gradient(135deg, rgba(9, 90, 113, 0.93), rgba(15, 155, 142, 0.87) 46%, rgba(255, 191, 89, 0.9));
+      color: #f9fffd;
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -10% -45% auto;
+      width: 340px;
+      height: 340px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+      filter: blur(8px);
+    }
+
+    .hero-top,
+    .controls,
+    .stats,
+    .board,
+    .details {
+      display: grid;
+      gap: 16px;
+    }
+
+    .hero-top {
+      grid-template-columns: 1.45fr 1fr;
+      align-items: start;
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 14px 0 12px;
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4vw, 3.7rem);
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 720px;
+      color: rgba(249, 255, 253, 0.88);
+      line-height: 1.5;
+    }
+
+    .hero-badges,
+    .quick-facts,
+    .site-meta,
+    .site-actions,
+    .config-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .badge,
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .badge {
+      background: rgba(255, 255, 255, 0.18);
+      color: #f8fffd;
+    }
+
+    .hero-status {
+      align-self: stretch;
+      border-radius: 24px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .hero-status h2,
+    .panel h2,
+    .panel h3,
+    .site-card h3 {
+      margin: 0;
+    }
+
+    .hero-status h2 {
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.92);
+      margin-bottom: 10px;
+    }
+
+    .hero-status-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .hero-status-grid strong {
+      display: block;
+      font-size: 1.55rem;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .hero-status-grid span {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .panel {
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .panel h2 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.58;
+    }
+
+    .hero-summary-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .compact-note {
+      flex: 1 1 280px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(14px);
+    }
+
+    .compact-note summary {
+      list-style: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .compact-note summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .compact-note p {
+      margin-top: 12px;
+      font-size: 0.94rem;
+      color: rgba(249, 255, 253, 0.9);
+    }
+
+    .compact-note .text-button {
+      color: #f7fffd;
+      border-color: rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.08);
+      white-space: nowrap;
+    }
+
+    .inline-facts {
+      flex: 2 1 520px;
+      margin-top: 0;
+    }
+
+    .inline-facts .fact {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #f7fffd;
+    }
+
+    .inline-facts .fact span {
+      color: rgba(249, 255, 253, 0.75);
+    }
+
+    .disclosure {
+      border-radius: 18px;
+      border: 1px solid rgba(16, 35, 31, 0.08);
+      background: rgba(255, 255, 255, 0.46);
+      overflow: hidden;
+    }
+
+    .disclosure summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      font-weight: 700;
+    }
+
+    .disclosure summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .disclosure summary::after {
+      content: "+";
+      font-size: 1.15rem;
+      line-height: 1;
+      color: var(--muted);
+      transition: transform 160ms ease;
+    }
+
+    .disclosure[open] summary::after {
+      transform: rotate(45deg);
+    }
+
+    .disclosure-body {
+      padding: 0 18px 18px;
+    }
+
+    .config-toolbar,
+    .advanced-editor-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+    }
+
+    .site-form-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .site-form-row {
+      display: grid;
+      grid-template-columns: minmax(120px, 0.9fr) minmax(170px, 1.1fr) minmax(220px, 2fr) auto;
+      gap: 10px;
+      align-items: end;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(16, 35, 31, 0.08);
+    }
+
+    .field-group {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field-group label,
+    .helper-text {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .field-input {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(252, 253, 252, 0.95);
+      color: var(--text);
+      outline: none;
+    }
+
+    .field-input:focus {
+      border-color: rgba(15, 155, 142, 0.46);
+      box-shadow: 0 0 0 3px rgba(15, 155, 142, 0.12);
+    }
+
+    .remove-site-button {
+      min-width: 92px;
+      min-height: 42px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(219, 91, 71, 0.16);
+      background: rgba(219, 91, 71, 0.08);
+      color: #9d2f20;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .advanced-editor {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed rgba(16, 35, 31, 0.12);
+    }
+
+    .advanced-editor.is-hidden {
+      display: none;
+    }
+
+    .controls {
+      margin-top: 18px;
+      grid-template-columns: 1.5fr auto auto auto auto auto;
+      align-items: center;
+    }
+
+    .migration-banner,
+    .sticky-overview {
+      margin-top: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(16, 35, 31, 0.08);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .migration-banner {
+      display: none;
+      padding: 16px 18px;
+      background: rgba(255, 241, 219, 0.92);
+    }
+
+    .migration-banner.show {
+      display: block;
+    }
+
+    .migration-banner p {
+      margin: 0;
+      color: #6e5318;
+      line-height: 1.55;
+    }
+
+    .banner-actions,
+    .sticky-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .banner-actions {
+      margin-top: 12px;
+    }
+
+    .sticky-overview {
+      position: sticky;
+      top: 10px;
+      z-index: 18;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .sticky-overview h2 {
+      margin: 0 0 10px;
+      font-size: 0.98rem;
+    }
+
+    .sticky-metrics {
+      justify-content: space-between;
+    }
+
+    .sticky-metric {
+      min-width: 72px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(16, 35, 31, 0.05);
+      flex: 1 1 90px;
+    }
+
+    .sticky-metric span {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .sticky-metric strong {
+      display: block;
+      font-size: 1rem;
+      letter-spacing: -0.03em;
+    }
+
+    .control-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .control-chip,
+    .action-button,
+    .ghost-button,
+    .text-button,
+    .site-link {
+      border: none;
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .control-chip,
+    select {
+      min-height: 42px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: var(--surface-strong);
+      border: 1px solid var(--line);
+      color: var(--text);
+    }
+
+    select {
+      min-width: 112px;
+      outline: none;
+    }
+
+    .action-button,
+    .site-link {
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--teal), #28b6a4);
+      color: #f7fffd;
+      box-shadow: 0 14px 34px rgba(15, 155, 142, 0.22);
+      font-weight: 700;
+    }
+
+    .ghost-button,
+    .text-button {
+      min-height: 42px;
+      padding: 0 14px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--text);
+      border: 1px solid var(--line);
+      font-weight: 600;
+    }
+
+    .text-button {
+      background: transparent;
+    }
+
+    .action-button:hover,
+    .ghost-button:hover,
+    .text-button:hover,
+    .site-link:hover {
+      transform: translateY(-1px);
+    }
+
+    .stats {
+      margin-top: 18px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .stat-card {
+      padding: 18px;
+      border-radius: var(--radius-lg);
+      background: var(--surface-strong);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .stat-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      letter-spacing: -0.04em;
+    }
+
+    .board {
+      margin-top: 18px;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 0.95fr);
+      align-items: start;
+    }
+
+    .site-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .site-card {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.88);
+      box-shadow: var(--shadow);
+    }
+
+    .site-head,
+    .status-row,
+    .status-metrics {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .site-title {
+      display: grid;
+      gap: 4px;
+    }
+
+    .site-title p,
+    .site-domain,
+    .mini-label,
+    .feed-empty,
+    .config-hint,
+    .footnote {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .site-title h3 {
+      font-size: 1.08rem;
+      letter-spacing: -0.02em;
+    }
+
+    .pill {
+      border: 1px solid transparent;
+    }
+
+    .pill.up {
+      background: rgba(15, 155, 142, 0.14);
+      color: var(--teal-deep);
+      border-color: rgba(15, 155, 142, 0.18);
+    }
+
+    .pill.down {
+      background: rgba(219, 91, 71, 0.14);
+      color: #9d2f20;
+      border-color: rgba(219, 91, 71, 0.18);
+    }
+
+    .pill.warn {
+      background: rgba(228, 169, 59, 0.18);
+      color: #8a6112;
+      border-color: rgba(228, 169, 59, 0.18);
+    }
+
+    .status-metrics {
+      align-items: stretch;
+    }
+
+    .metric {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(16, 35, 31, 0.04);
+    }
+
+    .metric span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .metric strong {
+      font-size: 1rem;
+      letter-spacing: -0.03em;
+    }
+
+    .sparkline {
+      padding: 12px 14px;
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(15, 155, 142, 0.05), rgba(70, 168, 216, 0.02)),
+        rgba(16, 35, 31, 0.03);
+      border: 1px solid rgba(16, 35, 31, 0.06);
+    }
+
+    .sparkline svg {
+      display: block;
+      width: 100%;
+      height: 72px;
+    }
+
+    .sparkline .axis {
+      stroke: rgba(25, 50, 39, 0.08);
+      stroke-width: 1;
+      stroke-dasharray: 3 5;
+    }
+
+    .sparkline .area {
+      fill: rgba(15, 155, 142, 0.11);
+    }
+
+    .sparkline .line {
+      fill: none;
+      stroke: var(--teal);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sparkline .dot-down {
+      fill: var(--red);
+    }
+
+    .details {
+      gap: 16px;
+    }
+
+    .feed {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .archive-feed {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .feed-item {
+      display: grid;
+      gap: 4px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(16, 35, 31, 0.04);
+      border: 1px solid rgba(16, 35, 31, 0.05);
+    }
+
+    .feed-item strong {
+      font-size: 0.96rem;
+    }
+
+    .feed-item span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .archive-item {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(16, 35, 31, 0.04);
+      border: 1px solid rgba(16, 35, 31, 0.05);
+    }
+
+    .archive-item-head,
+    .archive-item-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .archive-stat {
+      min-width: 90px;
+    }
+
+    .archive-stat span {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .archive-stat strong {
+      font-size: 0.96rem;
+      letter-spacing: -0.02em;
+    }
+
+    .config-panel textarea {
+      width: 100%;
+      min-height: 240px;
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px;
+      resize: vertical;
+      background: rgba(250, 252, 250, 0.88);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .config-actions {
+      margin-top: 14px;
+    }
+
+    .quick-facts {
+      margin-top: 14px;
+    }
+
+    .fact {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(16, 35, 31, 0.04);
+      border: 1px solid rgba(16, 35, 31, 0.05);
+      min-width: 120px;
+    }
+
+    .fact span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .fact strong {
+      font-size: 1rem;
+    }
+
+    .site-domain {
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .footnote {
+      margin-top: 14px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .toast {
+      position: sticky;
+      top: 10px;
+      margin-top: 16px;
+      z-index: 20;
+      min-height: 0;
+    }
+
+    .toast-inner {
+      display: none;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(25, 50, 39, 0.92);
+      color: #f7fffd;
+      box-shadow: var(--shadow);
+    }
+
+    .toast.show .toast-inner {
+      display: block;
+    }
+
+    .offline-banner {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(228, 169, 59, 0.18);
+      color: #76530d;
+      border: 1px solid rgba(228, 169, 59, 0.28);
+      display: none;
+    }
+
+    .offline-banner.show {
+      display: block;
+    }
+
+    @media (max-width: 1100px) {
+      .hero-top,
+      .board,
+      .controls,
+      .stats,
+      .site-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        justify-items: stretch;
+      }
+
+      .control-group {
+        justify-content: space-between;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100% - 18px, 100%);
+        padding-top: 10px;
+      }
+
+      .hero,
+      .panel,
+      .site-card,
+      .stat-card {
+        border-radius: 20px;
+      }
+
+      .hero {
+        padding: 20px;
+      }
+
+      .hero p,
+      .hero-badges {
+        display: none;
+      }
+
+      .hero-top {
+        gap: 14px;
+      }
+
+      .hero-status-grid,
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .compact-note {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .site-form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .remove-site-button {
+        width: 100%;
+      }
+
+      .sticky-overview {
+        top: 8px;
+      }
+
+      .site-card {
+        padding: 14px;
+        gap: 12px;
+      }
+
+      .sparkline svg {
+        height: 56px;
+      }
+
+      .status-row,
+      .status-metrics,
+      .site-head {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .metric {
+        width: 100%;
+      }
+
+      .action-button,
+      .ghost-button,
+      .text-button,
+      .site-link,
+      select {
+        width: 100%;
+      }
+
+      .control-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div>
+          <div class="eyebrow">Customer Site PulseBoard</div>
+          <h1>경영정보 고객사이트<br>PulseBoard</h1>
+          <p>
+            서버 없이도 PC와 모바일 브라우저에서 바로 열어볼 수 있는 고객사이트 헬스체크 초안입니다.
+            주기적인 접속 시도 결과를 로컬에 저장하고, 사이트별 상태와 최근 추세를 한 화면에서 확인할 수 있습니다.
+          </p>
+          <div class="hero-badges" style="margin-top: 18px;">
+            <span class="badge">No server required</span>
+            <span class="badge">Auto refresh</span>
+            <span class="badge">Local history timeline</span>
+          </div>
+        </div>
+        <aside class="hero-status">
+          <h2>현재 개요</h2>
+          <div class="hero-status-grid" id="heroStatusGrid"></div>
+        </aside>
+      </div>
+
+      <div class="hero-summary-strip">
+        <div class="quick-facts inline-facts" id="quickFacts"></div>
+        <details class="compact-note">
+          <summary class="text-button">브라우저 단독 모드 안내</summary>
+          <p>
+            현재 초안은 브라우저가 대상 사이트에 실제로 도달 가능한지를 보는 방식입니다.
+            추후 프록시나 서버를 붙이면 200/500 기준 모니터링으로 확장할 수 있습니다.
+          </p>
+        </details>
+      </div>
+    </section>
+
+    <div id="offlineBanner" class="offline-banner">
+      현재 브라우저가 오프라인 상태로 보입니다. 이 경우 모든 사이트가 장애처럼 보일 수 있습니다.
+    </div>
+
+    <section class="migration-banner" id="migrationBanner">
+      <p id="migrationBannerText"></p>
+      <div class="banner-actions">
+        <button class="action-button" id="applySeedUpdateButton" type="button">최신 기본 목록 적용</button>
+        <button class="ghost-button" id="dismissSeedUpdateButton" type="button">현재 목록 유지</button>
+      </div>
+    </section>
+
+    <section class="controls panel">
+      <div class="control-group">
+        <button class="action-button" id="refreshButton" type="button">지금 점검</button>
+        <button class="ghost-button" id="toggleAutoButton" type="button">자동 점검 일시정지</button>
+        <button class="ghost-button" id="exportHistoryButton" type="button">이력 내보내기</button>
+      </div>
+      <div class="control-group">
+        <label for="intervalSelect">주기</label>
+        <select id="intervalSelect">
+          <option value="60000">1분</option>
+          <option value="180000" selected>3분</option>
+          <option value="300000">5분</option>
+          <option value="600000">10분</option>
+          <option value="900000">15분</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label for="timeoutSelect">타임아웃</label>
+        <select id="timeoutSelect">
+          <option value="4000">4초</option>
+          <option value="8000" selected>8초</option>
+          <option value="12000">12초</option>
+          <option value="16000">16초</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <button class="text-button" id="loadDefaultsButton" type="button">기본 사이트 복원</button>
+      </div>
+      <div class="control-group">
+        <button class="text-button" id="clearHistoryButton" type="button">이력 초기화</button>
+      </div>
+      <div class="control-group">
+        <span id="nextCheckLabel" class="mini-label">다음 자동 점검 계산 중</span>
+      </div>
+    </section>
+
+    <section class="sticky-overview" id="stickyOverview">
+      <h2>모니터링 요약</h2>
+      <div class="sticky-metrics" id="stickyMetrics"></div>
+    </section>
+
+    <section class="stats" id="stats"></section>
+
+    <section class="board">
+      <div>
+        <div class="site-grid" id="siteGrid"></div>
+      </div>
+      <aside class="details">
+        <section class="panel">
+          <h2>최근 이슈 피드</h2>
+          <p>최근 실패, 타임아웃, 연속 장애 구간을 빠르게 훑어볼 수 있는 요약입니다.</p>
+          <div class="feed" id="incidentFeed"></div>
+        </section>
+
+        <section class="panel">
+          <h2>30일 시간 집계</h2>
+          <p>최근 30일 범위는 시간 단위로 압축 저장해, 저장량을 제한하면서 장기 추세를 보존합니다.</p>
+          <div class="archive-feed" id="archiveFeed"></div>
+        </section>
+
+        <section class="panel config-panel">
+          <details class="disclosure">
+            <summary>사이트 목록 설정</summary>
+            <div class="disclosure-body">
+              <p>
+                JSON 배열을 수정한 뒤 적용하면 목록이 브라우저 로컬에 저장됩니다.
+                `id`, `name`, `url` 형식을 권장하며, 중복 `id`는 자동으로 정리됩니다.
+              </p>
+              <div class="config-actions">
+                <button class="action-button" id="addSiteButton" type="button">사이트 추가</button>
+                <button class="ghost-button" id="saveSitesButton" type="button">목록 저장</button>
+              </div>
+              <div class="site-form-list" id="siteFormList"></div>
+              <p class="helper-text">
+                행 단위로 수정한 뒤 `목록 저장`을 누르면 바로 반영됩니다. `id`가 비어 있으면 이름 기준으로 자동 생성됩니다.
+              </p>
+              <div class="advanced-editor-header">
+                <p class="config-hint">고급 편집이 필요할 때만 JSON 편집기를 열어 사용할 수 있습니다.</p>
+                <button class="text-button" id="toggleJsonEditorButton" type="button">고급 JSON 편집 열기</button>
+              </div>
+              <div class="advanced-editor is-hidden" id="advancedJsonPanel">
+                <textarea id="configEditor" spellcheck="false"></textarea>
+                <div class="config-actions">
+                  <button class="action-button" id="applyConfigButton" type="button">JSON 적용</button>
+                  <button class="ghost-button" id="downloadConfigButton" type="button">설정 저장</button>
+                </div>
+              </div>
+              <p class="config-hint" style="margin-top: 12px;">
+                예시: `[{"id":"komsco","name":"대표홈페이지","url":"https://www.komsco.com"}]`
+              </p>
+            </div>
+          </details>
+        </section>
+      </aside>
+    </section>
+
+    <div class="toast" id="toast">
+      <div class="toast-inner" id="toastInner"></div>
+    </div>
+
+    <p class="footnote">
+      브라우저 정책상 이 페이지는 대상 사이트의 상세 응답내용이나 정확한 상태코드를 읽지 못할 수 있습니다.
+      현재 초안은 운영진이 “접속 가능 / 지연 / 실패 추세”를 직관적으로 보는 용도에 최적화되어 있으며, 더 정밀한 SLA 관리는 추후 중계 서버나 사내 API를 붙이면 자연스럽게 확장됩니다.
+    </p>
+  </main>
+
+  <script>
+    const APP_VERSION = "v1.0.0";
+    const DEFAULT_SEED_VERSION = 1;
+    const CONFIG_KEY = "komsco-pulseboard/config";
+    const HISTORY_KEY = "komsco-pulseboard/history";
+    const ARCHIVE_KEY = "komsco-pulseboard/archive";
+    const SETTINGS_KEY = "komsco-pulseboard/settings";
+    const META_KEY = "komsco-pulseboard/meta";
+    const HISTORY_LIMIT = 180;
+    const ARCHIVE_HOUR_LIMIT = 24 * 30;
+    const HOUR_MS = 60 * 60 * 1000;
+
+    const DEFAULT_SITES = [
+      { id: "komsco", name: "대표홈페이지", url: "https://www.komsco.com" },
+      { id: "koreamint", name: "전자쇼핑몰", url: "https://www.koreamint.com" },
+      { id: "museum", name: "화폐박물관", url: "https://museum.komsco.com/museum" },
+      { id: "webmail", name: "웹메일", url: "https://mail.komsco.com" }
+    ];
+
+    const state = {
+      sites: [],
+      history: {},
+      archive: {},
+      settings: {
+        intervalMs: 180000,
+        timeoutMs: 8000,
+        autoRun: true
+      },
+      meta: {
+        seedVersion: DEFAULT_SEED_VERSION,
+        userCustomized: false,
+        dismissedSeedVersion: 0
+      },
+      pendingSeedUpdate: false,
+      timerId: null,
+      clockId: null,
+      nextCheckAt: null,
+      isChecking: false
+    };
+
+    const ui = {
+      heroStatusGrid: document.getElementById("heroStatusGrid"),
+      quickFacts: document.getElementById("quickFacts"),
+      stats: document.getElementById("stats"),
+      stickyMetrics: document.getElementById("stickyMetrics"),
+      siteGrid: document.getElementById("siteGrid"),
+      incidentFeed: document.getElementById("incidentFeed"),
+      archiveFeed: document.getElementById("archiveFeed"),
+      configEditor: document.getElementById("configEditor"),
+      siteFormList: document.getElementById("siteFormList"),
+      intervalSelect: document.getElementById("intervalSelect"),
+      timeoutSelect: document.getElementById("timeoutSelect"),
+      toggleAutoButton: document.getElementById("toggleAutoButton"),
+      refreshButton: document.getElementById("refreshButton"),
+      exportHistoryButton: document.getElementById("exportHistoryButton"),
+      loadDefaultsButton: document.getElementById("loadDefaultsButton"),
+      clearHistoryButton: document.getElementById("clearHistoryButton"),
+      addSiteButton: document.getElementById("addSiteButton"),
+      saveSitesButton: document.getElementById("saveSitesButton"),
+      toggleJsonEditorButton: document.getElementById("toggleJsonEditorButton"),
+      advancedJsonPanel: document.getElementById("advancedJsonPanel"),
+      applyConfigButton: document.getElementById("applyConfigButton"),
+      downloadConfigButton: document.getElementById("downloadConfigButton"),
+      migrationBanner: document.getElementById("migrationBanner"),
+      migrationBannerText: document.getElementById("migrationBannerText"),
+      applySeedUpdateButton: document.getElementById("applySeedUpdateButton"),
+      dismissSeedUpdateButton: document.getElementById("dismissSeedUpdateButton"),
+      nextCheckLabel: document.getElementById("nextCheckLabel"),
+      toast: document.getElementById("toast"),
+      toastInner: document.getElementById("toastInner"),
+      offlineBanner: document.getElementById("offlineBanner")
+    };
+
+    function normalizeSites(rawSites) {
+      const used = new Set();
+      return rawSites
+        .filter((site) => site && site.url && site.name)
+        .map((site, index) => {
+          const baseId = String(site.id || site.name || "site")
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, "-")
+            .replace(/^-+|-+$/g, "") || `site-${index + 1}`;
+
+          let id = baseId;
+          let suffix = 2;
+          while (used.has(id)) {
+            id = `${baseId}-${suffix}`;
+            suffix += 1;
+          }
+          used.add(id);
+
+          return {
+            id,
+            name: String(site.name).trim(),
+            url: String(site.url).trim()
+          };
+        });
+    }
+
+    function loadJson(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (error) {
+        console.warn(`Failed to parse ${key}`, error);
+        return fallback;
+      }
+    }
+
+    function saveJson(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function getDefaultMeta() {
+      return {
+        seedVersion: DEFAULT_SEED_VERSION,
+        userCustomized: false,
+        dismissedSeedVersion: 0
+      };
+    }
+
+    function saveMeta() {
+      saveJson(META_KEY, state.meta);
+    }
+
+    function areSameSites(left, right) {
+      const normalizedLeft = normalizeSites(left);
+      const normalizedRight = normalizeSites(right);
+      return JSON.stringify(normalizedLeft) === JSON.stringify(normalizedRight);
+    }
+
+    function refreshSeedUpdateFlag() {
+      state.pendingSeedUpdate =
+        state.meta.userCustomized &&
+        state.meta.seedVersion < DEFAULT_SEED_VERSION &&
+        state.meta.dismissedSeedVersion < DEFAULT_SEED_VERSION;
+    }
+
+    function loadState() {
+      const savedSites = loadJson(CONFIG_KEY, DEFAULT_SITES);
+      const savedHistory = loadJson(HISTORY_KEY, {});
+      const savedArchive = loadJson(ARCHIVE_KEY, null);
+      const savedSettings = loadJson(SETTINGS_KEY, state.settings);
+      const savedMeta = loadJson(META_KEY, null);
+
+      state.sites = normalizeSites(savedSites);
+      state.history = sanitizeHistory(savedHistory);
+      state.archive = savedArchive ? sanitizeArchive(savedArchive) : rebuildArchiveFromHistory(state.history);
+      state.settings = {
+        ...state.settings,
+        ...savedSettings
+      };
+
+      if (savedMeta) {
+        state.meta = {
+          ...getDefaultMeta(),
+          ...savedMeta
+        };
+      } else {
+        state.meta = {
+          ...getDefaultMeta(),
+          userCustomized: !areSameSites(savedSites, DEFAULT_SITES)
+        };
+        saveMeta();
+      }
+
+      if (state.meta.seedVersion < DEFAULT_SEED_VERSION && !state.meta.userCustomized) {
+        state.sites = normalizeSites(DEFAULT_SITES);
+        saveJson(CONFIG_KEY, state.sites);
+        state.meta.seedVersion = DEFAULT_SEED_VERSION;
+        state.meta.dismissedSeedVersion = 0;
+        saveMeta();
+      }
+
+      refreshSeedUpdateFlag();
+      saveJson(ARCHIVE_KEY, state.archive);
+    }
+
+    function sanitizeHistory(history) {
+      const clean = {};
+      for (const [siteId, samples] of Object.entries(history || {})) {
+        if (!Array.isArray(samples)) {
+          continue;
+        }
+        clean[siteId] = samples
+          .filter((sample) => sample && Number.isFinite(sample.ts))
+          .slice(-HISTORY_LIMIT);
+      }
+      return clean;
+    }
+
+    function sanitizeArchive(archive) {
+      const clean = {};
+      for (const [siteId, buckets] of Object.entries(archive || {})) {
+        if (!Array.isArray(buckets)) {
+          continue;
+        }
+        clean[siteId] = buckets
+          .filter((bucket) => bucket && Number.isFinite(bucket.bucketStart) && Number.isFinite(bucket.total))
+          .map((bucket) => ({
+            bucketStart: bucket.bucketStart,
+            total: bucket.total,
+            upCount: bucket.upCount || 0,
+            downCount: bucket.downCount || 0,
+            timeoutCount: bucket.timeoutCount || 0,
+            latencySum: bucket.latencySum || 0,
+            latencySamples: bucket.latencySamples || 0
+          }))
+          .sort((left, right) => left.bucketStart - right.bucketStart)
+          .slice(-ARCHIVE_HOUR_LIMIT);
+      }
+      return clean;
+    }
+
+    function getBucketStart(timestamp) {
+      return Math.floor(timestamp / HOUR_MS) * HOUR_MS;
+    }
+
+    function createEmptyBucket(bucketStart) {
+      return {
+        bucketStart,
+        total: 0,
+        upCount: 0,
+        downCount: 0,
+        timeoutCount: 0,
+        latencySum: 0,
+        latencySamples: 0
+      };
+    }
+
+    function updateArchiveBucket(bucket, sample) {
+      bucket.total += 1;
+      if (sample.status === "up") {
+        bucket.upCount += 1;
+      } else {
+        bucket.downCount += 1;
+      }
+      if (sample.detail === "timeout") {
+        bucket.timeoutCount += 1;
+      }
+      if (Number.isFinite(sample.latency)) {
+        bucket.latencySum += sample.latency;
+        bucket.latencySamples += 1;
+      }
+      return bucket;
+    }
+
+    function rebuildArchiveFromHistory(history) {
+      const rebuilt = {};
+      for (const [siteId, samples] of Object.entries(history || {})) {
+        const bucketMap = new Map();
+        (samples || []).forEach((sample) => {
+          if (!sample || !Number.isFinite(sample.ts)) {
+            return;
+          }
+          const bucketStart = getBucketStart(sample.ts);
+          const bucket = bucketMap.get(bucketStart) || createEmptyBucket(bucketStart);
+          updateArchiveBucket(bucket, sample);
+          bucketMap.set(bucketStart, bucket);
+        });
+        rebuilt[siteId] = Array.from(bucketMap.values())
+          .sort((left, right) => left.bucketStart - right.bucketStart)
+          .slice(-ARCHIVE_HOUR_LIMIT);
+      }
+      return rebuilt;
+    }
+
+    function syncControls() {
+      ui.intervalSelect.value = String(state.settings.intervalMs);
+      ui.timeoutSelect.value = String(state.settings.timeoutMs);
+      ui.toggleAutoButton.textContent = state.settings.autoRun ? "자동 점검 일시정지" : "자동 점검 다시 시작";
+      syncConfigEditor();
+      renderSiteEditor();
+    }
+
+    function syncConfigEditor() {
+      ui.configEditor.value = JSON.stringify(state.sites, null, 2);
+    }
+
+    function renderSiteEditor() {
+      ui.siteFormList.innerHTML = state.sites.map((site, index) => `
+        <div class="site-form-row" data-index="${index}">
+          <div class="field-group">
+            <label for="site-id-${index}">ID</label>
+            <input id="site-id-${index}" class="field-input" type="text" data-field="id" value="${escapeHtml(site.id)}" placeholder="예: komsco">
+          </div>
+          <div class="field-group">
+            <label for="site-name-${index}">이름</label>
+            <input id="site-name-${index}" class="field-input" type="text" data-field="name" value="${escapeHtml(site.name)}" placeholder="예: 대표홈페이지">
+          </div>
+          <div class="field-group">
+            <label for="site-url-${index}">URL</label>
+            <input id="site-url-${index}" class="field-input" type="url" data-field="url" value="${escapeHtml(site.url)}" placeholder="https://example.com">
+          </div>
+          <button class="remove-site-button" type="button" data-action="remove-site" data-index="${index}">삭제</button>
+        </div>
+      `).join("");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function collectSitesFromForm() {
+      return Array.from(ui.siteFormList.querySelectorAll(".site-form-row")).map((row) => {
+        const getValue = (field) => row.querySelector(`[data-field="${field}"]`)?.value?.trim() || "";
+        return {
+          id: getValue("id"),
+          name: getValue("name"),
+          url: getValue("url")
+        };
+      });
+    }
+
+    function commitSites(rawSites, successMessage, options = {}) {
+      const {
+        userCustomized = true,
+        seedVersion = DEFAULT_SEED_VERSION,
+        dismissedSeedVersion = 0
+      } = options;
+      const normalized = normalizeSites(rawSites);
+      if (!normalized.length) {
+        throw new Error("최소 1개 이상의 사이트가 필요합니다.");
+      }
+
+      state.sites = normalized;
+      saveJson(CONFIG_KEY, state.sites);
+
+      const activeIds = new Set(state.sites.map((site) => site.id));
+      state.history = Object.fromEntries(Object.entries(state.history).filter(([siteId]) => activeIds.has(siteId)));
+      state.archive = Object.fromEntries(Object.entries(state.archive).filter(([siteId]) => activeIds.has(siteId)));
+      saveJson(HISTORY_KEY, state.history);
+      saveJson(ARCHIVE_KEY, state.archive);
+
+      state.meta = {
+        ...state.meta,
+        seedVersion,
+        userCustomized,
+        dismissedSeedVersion
+      };
+      saveMeta();
+      refreshSeedUpdateFlag();
+
+      syncConfigEditor();
+      renderSiteEditor();
+      render();
+      scheduleNextCheck();
+
+      if (successMessage) {
+        showToast(successMessage);
+      }
+    }
+
+    function resetToDefaults() {
+      commitSites(DEFAULT_SITES, "기본 사이트 목록으로 복원했습니다.", {
+        userCustomized: false,
+        seedVersion: DEFAULT_SEED_VERSION,
+        dismissedSeedVersion: 0
+      });
+    }
+
+    function getOriginLabel(url) {
+      try {
+        return new URL(url).hostname;
+      } catch (error) {
+        return url;
+      }
+    }
+
+    function recordSample(siteId, sample) {
+      const existing = state.history[siteId] || [];
+      existing.push(sample);
+      state.history[siteId] = existing.slice(-HISTORY_LIMIT);
+      updateArchive(siteId, sample);
+    }
+
+    function updateArchive(siteId, sample) {
+      const existing = state.archive[siteId] || [];
+      const bucketStart = getBucketStart(sample.ts);
+      const archive = [...existing];
+      const lastBucket = archive[archive.length - 1];
+
+      if (lastBucket && lastBucket.bucketStart === bucketStart) {
+        updateArchiveBucket(lastBucket, sample);
+      } else {
+        const bucket = createEmptyBucket(bucketStart);
+        updateArchiveBucket(bucket, sample);
+        archive.push(bucket);
+      }
+
+      state.archive[siteId] = archive.slice(-ARCHIVE_HOUR_LIMIT);
+    }
+
+    function getLatestSample(siteId) {
+      const samples = state.history[siteId] || [];
+      return samples[samples.length - 1] || null;
+    }
+
+    function getRecentSamples(siteId, count = 24) {
+      const samples = state.history[siteId] || [];
+      return samples.slice(-count);
+    }
+
+    function getRecentArchiveBuckets(siteId, count = 24 * 7) {
+      const buckets = state.archive[siteId] || [];
+      return buckets.slice(-count);
+    }
+
+    function getFailureStreak(siteId) {
+      const samples = state.history[siteId] || [];
+      let streak = 0;
+      for (let index = samples.length - 1; index >= 0; index -= 1) {
+        if (samples[index].status === "down") {
+          streak += 1;
+          continue;
+        }
+        break;
+      }
+      return streak;
+    }
+
+    function formatTime(timestamp) {
+      if (!timestamp) {
+        return "아직 없음";
+      }
+      return new Intl.DateTimeFormat("ko-KR", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      }).format(new Date(timestamp));
+    }
+
+    function formatRelativeMs(ms) {
+      const totalSeconds = Math.max(0, Math.round(ms / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      if (minutes > 0) {
+        return `${minutes}분 ${seconds}초`;
+      }
+      return `${seconds}초`;
+    }
+
+    function formatLatency(value) {
+      if (!Number.isFinite(value)) {
+        return "-";
+      }
+      return `${Math.round(value)} ms`;
+    }
+
+    function formatPercent(value) {
+      if (!Number.isFinite(value)) {
+        return "-";
+      }
+      return `${Math.round(value)}%`;
+    }
+
+    function getArchiveSummary(siteId, hours = ARCHIVE_HOUR_LIMIT) {
+      const cutoff = Date.now() - (hours * HOUR_MS);
+      const buckets = (state.archive[siteId] || []).filter((bucket) => bucket.bucketStart >= cutoff);
+      const totalChecks = buckets.reduce((sum, bucket) => sum + bucket.total, 0);
+      const upChecks = buckets.reduce((sum, bucket) => sum + bucket.upCount, 0);
+      const downChecks = buckets.reduce((sum, bucket) => sum + bucket.downCount, 0);
+      const timeoutChecks = buckets.reduce((sum, bucket) => sum + bucket.timeoutCount, 0);
+      const latencySum = buckets.reduce((sum, bucket) => sum + bucket.latencySum, 0);
+      const latencySamples = buckets.reduce((sum, bucket) => sum + bucket.latencySamples, 0);
+
+      return {
+        bucketCount: buckets.length,
+        totalChecks,
+        upChecks,
+        downChecks,
+        timeoutChecks,
+        uptime: totalChecks ? Math.round((upChecks / totalChecks) * 100) : null,
+        averageLatency: latencySamples ? Math.round(latencySum / latencySamples) : null
+      };
+    }
+
+    function getSiteHealth(site) {
+      const latest = getLatestSample(site.id);
+      const samples = state.history[site.id] || [];
+      const upCount = samples.filter((sample) => sample.status === "up").length;
+      const recentUptime = samples.length ? Math.round((upCount / samples.length) * 100) : null;
+      const failureStreak = getFailureStreak(site.id);
+      const archiveSummary = getArchiveSummary(site.id);
+
+      return {
+        latest,
+        recentUptime,
+        failureStreak,
+        sampleCount: samples.length,
+        archiveSummary
+      };
+    }
+
+    function renderHeroStatus(summary) {
+      const blocks = [
+        { label: "정상 사이트", value: `${summary.upCount}/${summary.checkedCount || summary.total}` },
+        { label: "평균 지연", value: summary.averageLatency ? `${summary.averageLatency} ms` : "-" },
+        { label: "최근 점검", value: summary.lastCheckedAt ? formatTime(summary.lastCheckedAt) : "미실행" },
+        { label: "자동 점검", value: state.settings.autoRun ? "실행 중" : "멈춤" }
+      ];
+
+      ui.heroStatusGrid.innerHTML = blocks
+        .map((block) => `<div><strong>${block.value}</strong><span>${block.label}</span></div>`)
+        .join("");
+    }
+
+    function renderQuickFacts(summary) {
+      const facts = [
+        { label: "배포 버전", value: APP_VERSION },
+        { label: "감시 대상", value: `${summary.total}개 사이트` },
+        { label: "장애 후보", value: `${summary.downCount}개` },
+        { label: "미점검", value: `${summary.unknownCount}개` },
+        { label: "원본 샘플", value: `${summary.sampleCount}개` },
+        { label: "시간 집계", value: `${summary.archiveBucketCount}칸` }
+      ];
+
+      ui.quickFacts.innerHTML = facts
+        .map((fact) => `<div class="fact"><span>${fact.label}</span><strong>${fact.value}</strong></div>`)
+        .join("");
+    }
+
+    function renderStickyOverview(summary) {
+      const metrics = [
+        { label: "정상", value: `${summary.upCount}` },
+        { label: "장애", value: `${summary.downCount}` },
+        { label: "미점검", value: `${summary.unknownCount}` },
+        { label: "다음 점검", value: state.settings.autoRun && state.nextCheckAt ? formatRelativeMs(Math.max(0, state.nextCheckAt - Date.now())) : "멈춤" }
+      ];
+
+      ui.stickyMetrics.innerHTML = metrics
+        .map((item) => `<div class="sticky-metric"><span>${item.label}</span><strong>${item.value}</strong></div>`)
+        .join("");
+    }
+
+    function renderMigrationBanner() {
+      if (!state.pendingSeedUpdate) {
+        ui.migrationBanner.classList.remove("show");
+        ui.migrationBannerText.textContent = "";
+        return;
+      }
+
+      ui.migrationBanner.classList.add("show");
+      ui.migrationBannerText.textContent = `배포 기본 사이트 목록이 v${DEFAULT_SEED_VERSION}로 갱신되었습니다. 현재 저장된 사용자 목록은 유지 중이며, 원하면 최신 기본 목록으로 바꿀 수 있습니다.`;
+    }
+
+    function renderStats(summary) {
+      const cards = [
+        {
+          label: "현재 가용 비율",
+          value: summary.checkedCount ? `${Math.round((summary.upCount / summary.checkedCount) * 100)}%` : "미측정"
+        },
+        {
+          label: "연속 장애 감지",
+          value: `${summary.degradedCount}개`
+        },
+        {
+          label: "30일 시간 집계 정상률",
+          value: formatPercent(summary.archiveUptime)
+        },
+        {
+          label: "브라우저 연결 상태",
+          value: navigator.onLine ? "온라인" : "오프라인"
+        }
+      ];
+
+      ui.stats.innerHTML = cards
+        .map((card) => `<article class="stat-card"><span>${card.label}</span><strong>${card.value}</strong></article>`)
+        .join("");
+    }
+
+    function buildSparkline(samples) {
+      if (!samples.length) {
+        return `
+          <svg viewBox="0 0 260 72" preserveAspectRatio="none">
+            <line class="axis" x1="0" y1="58" x2="260" y2="58"></line>
+          </svg>
+        `;
+      }
+
+      const width = 260;
+      const height = 72;
+      const baseY = 58;
+      const step = samples.length > 1 ? width / (samples.length - 1) : width;
+      const upLatencies = samples.filter((sample) => sample.status === "up" && Number.isFinite(sample.latency)).map((sample) => sample.latency);
+      const maxLatency = upLatencies.length ? Math.max(...upLatencies, 800) : 800;
+
+      const points = samples.map((sample, index) => {
+        const x = step * index;
+        const y = sample.status === "down"
+          ? baseY
+          : 18 + ((Math.min(sample.latency || maxLatency, maxLatency) / maxLatency) * 30);
+        return { x, y, down: sample.status === "down" };
+      });
+
+      const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+      const areaPath = `${linePath} L ${width} ${baseY} L 0 ${baseY} Z`;
+      const downDots = points
+        .filter((point) => point.down)
+        .map((point) => `<circle class="dot-down" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="3.2"></circle>`)
+        .join("");
+
+      return `
+        <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+          <line class="axis" x1="0" y1="${baseY}" x2="${width}" y2="${baseY}"></line>
+          <path class="area" d="${areaPath}"></path>
+          <path class="line" d="${linePath}"></path>
+          ${downDots}
+        </svg>
+      `;
+    }
+
+    function renderSites() {
+      ui.siteGrid.innerHTML = state.sites.map((site) => {
+        const { latest, recentUptime, failureStreak, sampleCount, archiveSummary } = getSiteHealth(site);
+        const statusClass = latest ? (latest.status === "up" ? "up" : "down") : "warn";
+        const statusLabel = latest ? (latest.status === "up" ? "정상" : "실패") : "대기";
+        const trendLabel = sampleCount ? `최근 ${Math.min(sampleCount, 24)}회 추세` : "이력 대기";
+        const lastDetail = latest ? (latest.detail === "timeout" ? "타임아웃" : latest.detail === "reachable" ? "접속 성공" : "접속 실패") : "첫 점검 전";
+
+        return `
+          <article class="site-card">
+            <div class="site-head">
+              <div class="site-title">
+                <h3>${site.name}</h3>
+                <p class="site-domain">${getOriginLabel(site.url)}</p>
+              </div>
+              <span class="pill ${statusClass}">${statusLabel}</span>
+            </div>
+
+            <div class="site-meta">
+              <span class="badge" style="background: rgba(16, 35, 31, 0.06); color: var(--text);">${site.id}</span>
+              <span class="badge" style="background: rgba(16, 35, 31, 0.06); color: var(--text);">${lastDetail}</span>
+              <span class="badge" style="background: rgba(16, 35, 31, 0.06); color: var(--text);">30일 ${formatPercent(archiveSummary.uptime)}</span>
+            </div>
+
+            <div class="status-metrics">
+              <div class="metric">
+                <span>마지막 응답</span>
+                <strong>${latest ? formatLatency(latest.latency) : "-"}</strong>
+              </div>
+              <div class="metric">
+                <span>최근 정상률</span>
+                <strong>${formatPercent(recentUptime)}</strong>
+              </div>
+              <div class="metric">
+                <span>연속 실패</span>
+                <strong>${failureStreak}회</strong>
+              </div>
+            </div>
+
+            <div class="sparkline">
+              <div class="status-row">
+                <p class="mini-label">${trendLabel} · 시간집계 ${archiveSummary.bucketCount}칸</p>
+                <p class="mini-label">${latest ? formatTime(latest.ts) : "점검 전"}</p>
+              </div>
+              ${buildSparkline(getRecentSamples(site.id, 24))}
+            </div>
+
+            <div class="site-actions">
+              <a class="site-link" href="${site.url}" target="_blank" rel="noreferrer">사이트 열기</a>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function collectIncidents() {
+      const incidents = [];
+      for (const site of state.sites) {
+        const samples = state.history[site.id] || [];
+        samples.forEach((sample) => {
+          if (sample.status === "down") {
+            incidents.push({
+              siteName: site.name,
+              ts: sample.ts,
+              detail: sample.detail,
+              latency: sample.latency
+            });
+          }
+        });
+      }
+      return incidents.sort((a, b) => b.ts - a.ts).slice(0, 8);
+    }
+
+    function renderIncidentFeed() {
+      const incidents = collectIncidents();
+      if (!incidents.length) {
+        ui.incidentFeed.innerHTML = `<p class="feed-empty">아직 기록된 장애 이슈가 없습니다. 첫 자동 점검이 시작되면 여기에 최근 이슈가 표시됩니다.</p>`;
+        return;
+      }
+
+      ui.incidentFeed.innerHTML = incidents.map((item) => {
+        const detailText = item.detail === "timeout" ? "타임아웃" : "네트워크 실패";
+        return `
+          <div class="feed-item">
+            <strong>${item.siteName}</strong>
+            <span>${formatTime(item.ts)} · ${detailText} · ${formatLatency(item.latency)}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderArchiveFeed() {
+      const rows = state.sites
+        .map((site) => ({
+          site,
+          summary: getArchiveSummary(site.id)
+        }))
+        .sort((left, right) => {
+          const leftUptime = Number.isFinite(left.summary.uptime) ? left.summary.uptime : 101;
+          const rightUptime = Number.isFinite(right.summary.uptime) ? right.summary.uptime : 101;
+          return leftUptime - rightUptime;
+        })
+        .slice(0, 8);
+
+      if (!rows.length || rows.every((row) => row.summary.totalChecks === 0)) {
+        ui.archiveFeed.innerHTML = `<p class="feed-empty">시간 집계 데이터는 첫 점검부터 누적됩니다. 최근 30일 장기 추세가 여기에 표시됩니다.</p>`;
+        return;
+      }
+
+      ui.archiveFeed.innerHTML = rows.map(({ site, summary }) => `
+        <div class="archive-item">
+          <div class="archive-item-head">
+            <strong>${site.name}</strong>
+            <span class="pill ${summary.downChecks > 0 ? "warn" : "up"}">30일 ${formatPercent(summary.uptime)}</span>
+          </div>
+          <div class="archive-item-stats">
+            <div class="archive-stat">
+              <span>집계 구간</span>
+              <strong>${summary.bucketCount}시간</strong>
+            </div>
+            <div class="archive-stat">
+              <span>누적 점검</span>
+              <strong>${summary.totalChecks}회</strong>
+            </div>
+            <div class="archive-stat">
+              <span>실패 횟수</span>
+              <strong>${summary.downChecks}회</strong>
+            </div>
+            <div class="archive-stat">
+              <span>평균 지연</span>
+              <strong>${formatLatency(summary.averageLatency)}</strong>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function computeSummary() {
+      const latestSamples = state.sites.map((site) => getLatestSample(site.id)).filter(Boolean);
+      const upSamples = latestSamples.filter((sample) => sample.status === "up");
+      const downSamples = latestSamples.filter((sample) => sample.status === "down");
+      const allLatencies = upSamples.map((sample) => sample.latency).filter(Number.isFinite);
+      const sampleCount = Object.values(state.history).reduce((sum, samples) => sum + samples.length, 0);
+      const archiveBucketCount = Object.values(state.archive).reduce((sum, buckets) => sum + buckets.length, 0);
+      const archiveChecks = Object.keys(state.archive).map((siteId) => getArchiveSummary(siteId));
+      const archiveTotalChecks = archiveChecks.reduce((sum, summary) => sum + summary.totalChecks, 0);
+      const archiveUpChecks = archiveChecks.reduce((sum, summary) => sum + summary.upChecks, 0);
+      const degradedCount = state.sites.filter((site) => getFailureStreak(site.id) >= 2).length;
+      const lastCheckedAt = latestSamples.length ? Math.max(...latestSamples.map((sample) => sample.ts)) : null;
+
+      return {
+        total: state.sites.length,
+        checkedCount: latestSamples.length,
+        upCount: upSamples.length,
+        downCount: downSamples.length,
+        unknownCount: Math.max(0, state.sites.length - latestSamples.length),
+        averageLatency: allLatencies.length ? Math.round(allLatencies.reduce((sum, value) => sum + value, 0) / allLatencies.length) : null,
+        incidentCount: collectIncidents().length,
+        sampleCount,
+        archiveBucketCount,
+        archiveUptime: archiveTotalChecks ? Math.round((archiveUpChecks / archiveTotalChecks) * 100) : null,
+        degradedCount,
+        lastCheckedAt
+      };
+    }
+
+    function render() {
+      const summary = computeSummary();
+      renderHeroStatus(summary);
+      renderQuickFacts(summary);
+      renderStickyOverview(summary);
+      renderStats(summary);
+      renderSites();
+      renderIncidentFeed();
+      renderArchiveFeed();
+      renderMigrationBanner();
+      ui.offlineBanner.classList.toggle("show", !navigator.onLine);
+      syncCountdown();
+    }
+
+    function showToast(message) {
+      ui.toastInner.textContent = message;
+      ui.toast.classList.add("show");
+      window.clearTimeout(showToast.timerId);
+      showToast.timerId = window.setTimeout(() => {
+        ui.toast.classList.remove("show");
+      }, 2600);
+    }
+
+    async function checkSite(site) {
+      const startedAt = performance.now();
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), state.settings.timeoutMs);
+
+      try {
+        const url = new URL(site.url);
+        url.searchParams.set("_pulse", Date.now().toString(36));
+
+        await fetch(url.toString(), {
+          method: "GET",
+          mode: "no-cors",
+          cache: "no-store",
+          redirect: "follow",
+          signal: controller.signal
+        });
+
+        return {
+          ts: Date.now(),
+          status: "up",
+          latency: Math.round(performance.now() - startedAt),
+          detail: "reachable"
+        };
+      } catch (error) {
+        return {
+          ts: Date.now(),
+          status: "down",
+          latency: Math.round(performance.now() - startedAt),
+          detail: error && error.name === "AbortError" ? "timeout" : "network-error"
+        };
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    }
+
+    async function runChecks() {
+      if (state.isChecking || !state.sites.length) {
+        return;
+      }
+
+      state.isChecking = true;
+      ui.refreshButton.disabled = true;
+      ui.refreshButton.textContent = "점검 중...";
+
+      try {
+        const results = await Promise.all(state.sites.map(async (site) => ({
+          siteId: site.id,
+          sample: await checkSite(site)
+        })));
+
+        results.forEach((result) => recordSample(result.siteId, result.sample));
+        saveJson(HISTORY_KEY, state.history);
+        saveJson(ARCHIVE_KEY, state.archive);
+        render();
+        showToast(`점검 완료 · ${results.length}개 사이트 반영`);
+      } finally {
+        state.isChecking = false;
+        ui.refreshButton.disabled = false;
+        ui.refreshButton.textContent = "지금 점검";
+        scheduleNextCheck();
+      }
+    }
+
+    function scheduleNextCheck() {
+      if (state.timerId) {
+        window.clearTimeout(state.timerId);
+      }
+
+      if (!state.settings.autoRun) {
+        state.nextCheckAt = null;
+        syncCountdown();
+        return;
+      }
+
+      state.nextCheckAt = Date.now() + state.settings.intervalMs;
+      state.timerId = window.setTimeout(() => {
+        runChecks();
+      }, state.settings.intervalMs);
+      syncCountdown();
+    }
+
+    function syncCountdown() {
+      if (!state.settings.autoRun || !state.nextCheckAt) {
+        ui.nextCheckLabel.textContent = "자동 점검이 멈춰 있습니다";
+        renderStickyOverview(computeSummary());
+        return;
+      }
+
+      const remaining = state.nextCheckAt - Date.now();
+      ui.nextCheckLabel.textContent = remaining > 0
+        ? `다음 자동 점검까지 ${formatRelativeMs(remaining)}`
+        : "곧 자동 점검 실행";
+      renderStickyOverview(computeSummary());
+    }
+
+    function startClock() {
+      if (state.clockId) {
+        window.clearInterval(state.clockId);
+      }
+      state.clockId = window.setInterval(syncCountdown, 1000);
+    }
+
+    function applyConfigFromEditor() {
+      try {
+        const parsed = JSON.parse(ui.configEditor.value);
+        if (!Array.isArray(parsed) || !parsed.length) {
+          throw new Error("사이트 배열이 필요합니다.");
+        }
+        commitSites(parsed, `설정 적용 완료 · ${parsed.length}개 사이트`, {
+          userCustomized: !areSameSites(parsed, DEFAULT_SITES)
+        });
+      } catch (error) {
+        console.error(error);
+        showToast(`설정 적용 실패 · ${error.message}`);
+      }
+    }
+
+    function saveSitesFromForm() {
+      try {
+        const rawSites = collectSitesFromForm().filter((site) => site.name || site.url || site.id);
+        commitSites(rawSites, `목록 저장 완료 · ${rawSites.length}개 사이트`, {
+          userCustomized: !areSameSites(rawSites, DEFAULT_SITES)
+        });
+      } catch (error) {
+        console.error(error);
+        showToast(`목록 저장 실패 · ${error.message}`);
+      }
+    }
+
+    function downloadJson(filename, payload) {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function bindEvents() {
+      ui.refreshButton.addEventListener("click", runChecks);
+      ui.toggleAutoButton.addEventListener("click", () => {
+        state.settings.autoRun = !state.settings.autoRun;
+        saveJson(SETTINGS_KEY, state.settings);
+        syncControls();
+        scheduleNextCheck();
+        render();
+      });
+
+      ui.intervalSelect.addEventListener("change", (event) => {
+        state.settings.intervalMs = Number(event.target.value);
+        saveJson(SETTINGS_KEY, state.settings);
+        scheduleNextCheck();
+        render();
+      });
+
+      ui.timeoutSelect.addEventListener("change", (event) => {
+        state.settings.timeoutMs = Number(event.target.value);
+        saveJson(SETTINGS_KEY, state.settings);
+        render();
+      });
+
+      ui.exportHistoryButton.addEventListener("click", () => {
+        downloadJson("komsco-pulseboard-history.json", {
+          exportedAt: new Date().toISOString(),
+          sites: state.sites,
+          history: state.history,
+          archive: state.archive,
+          retention: {
+            rawSamplesPerSite: HISTORY_LIMIT,
+            archiveHoursPerSite: ARCHIVE_HOUR_LIMIT
+          }
+        });
+      });
+
+      ui.loadDefaultsButton.addEventListener("click", () => {
+        resetToDefaults();
+      });
+
+      ui.clearHistoryButton.addEventListener("click", () => {
+        state.history = {};
+        state.archive = {};
+        saveJson(HISTORY_KEY, state.history);
+        saveJson(ARCHIVE_KEY, state.archive);
+        render();
+        showToast("저장된 이력을 초기화했습니다.");
+      });
+
+      ui.addSiteButton.addEventListener("click", () => {
+        state.sites = [
+          ...collectSitesFromForm().filter((site) => site.name || site.url || site.id),
+          { id: "", name: "", url: "" }
+        ];
+        renderSiteEditor();
+      });
+
+      ui.saveSitesButton.addEventListener("click", saveSitesFromForm);
+
+      ui.siteFormList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-action='remove-site']");
+        if (!button) {
+          return;
+        }
+
+        const removeIndex = Number(button.dataset.index);
+        state.sites = collectSitesFromForm().filter((_, index) => index !== removeIndex);
+        renderSiteEditor();
+      });
+
+      ui.siteFormList.addEventListener("input", () => {
+        const rawSites = collectSitesFromForm().filter((site) => site.name || site.url || site.id);
+        const previewSites = rawSites.length ? normalizeSites(rawSites) : [];
+        ui.configEditor.value = JSON.stringify(previewSites, null, 2);
+      });
+
+      ui.toggleJsonEditorButton.addEventListener("click", () => {
+        const isHidden = ui.advancedJsonPanel.classList.toggle("is-hidden");
+        ui.toggleJsonEditorButton.textContent = isHidden ? "고급 JSON 편집 열기" : "고급 JSON 편집 닫기";
+      });
+
+      ui.applySeedUpdateButton.addEventListener("click", () => {
+        resetToDefaults();
+      });
+
+      ui.dismissSeedUpdateButton.addEventListener("click", () => {
+        state.meta.dismissedSeedVersion = DEFAULT_SEED_VERSION;
+        saveMeta();
+        refreshSeedUpdateFlag();
+        render();
+        showToast("현재 사용자 목록을 유지하도록 설정했습니다.");
+      });
+
+      ui.applyConfigButton.addEventListener("click", applyConfigFromEditor);
+      ui.downloadConfigButton.addEventListener("click", () => {
+        downloadJson("komsco-pulseboard-sites.json", state.sites);
+      });
+
+      window.addEventListener("online", () => {
+        render();
+        if (state.settings.autoRun && !state.isChecking) {
+          runChecks();
+        }
+      });
+      window.addEventListener("offline", render);
+    }
+
+    function bootstrap() {
+      loadState();
+      bindEvents();
+      syncControls();
+      render();
+      startClock();
+      if (state.settings.autoRun) {
+        runChecks();
+      } else {
+        scheduleNextCheck();
+      }
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "komsco",
+    "name": "대표홈페이지",
+    "url": "https://www.komsco.com"
+  },
+  {
+    "id": "koreamint",
+    "name": "전자쇼핑몰",
+    "url": "https://www.koreamint.com"
+  },
+  {
+    "id": "museum",
+    "name": "화폐박물관",
+    "url": "https://museum.komsco.com/museum"
+  },
+  {
+    "id": "webmail",
+    "name": "웹메일",
+    "url": "https://mail.komsco.com"
+  }
+]

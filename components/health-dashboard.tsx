@@ -1,0 +1,616 @@
+﻿"use client";
+
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import type {
+  AlertEvent,
+  DashboardPayload,
+  HealthResult,
+  HourlyAggregate,
+  RawHistorySample,
+  SiteConfig
+} from "@/lib/types";
+
+const APP_VERSION = "v1.1.0";
+const SETTINGS_KEY = "komsco-next-pulseboard/settings";
+
+type Settings = {
+  intervalMs: number;
+  timeoutMs: number;
+  autoRefresh: boolean;
+  soundEnabled: boolean;
+};
+
+type Notification = {
+  id: string;
+  tone: "danger" | "success";
+  title: string;
+  message: string;
+};
+
+type SiteRow = {
+  site: SiteConfig;
+  latest: HealthResult | null;
+  rawSamples: RawHistorySample[];
+  hourly: HourlyAggregate[];
+  recentUptime: number | null;
+  archiveUptime: number | null;
+  archiveLatency: number | null;
+  failureStreak: number;
+  spark: {
+    line: string;
+    area: string;
+    dots: Array<{ x: number; y: number }>;
+  };
+};
+
+const defaultSettings: Settings = {
+  intervalMs: 180000,
+  timeoutMs: 8000,
+  autoRefresh: true,
+  soundEnabled: true
+};
+
+function loadSettings(): Settings {
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_KEY);
+    return raw ? ({ ...defaultSettings, ...JSON.parse(raw) } as Settings) : defaultSettings;
+  } catch {
+    return defaultSettings;
+  }
+}
+
+function saveSettings(settings: Settings) {
+  window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function formatTime(value: string | number | null) {
+  if (!value) {
+    return "미실행";
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(new Date(value));
+}
+
+function formatLatency(value: number | null) {
+  return Number.isFinite(value) ? `${Math.round(value as number)} ms` : "-";
+}
+
+function formatPercent(value: number | null) {
+  return Number.isFinite(value) ? `${Math.round(value as number)}%` : "-";
+}
+
+function formatCountdown(ms: number | null) {
+  if (!Number.isFinite(ms) || ms === null) {
+    return "멈춤";
+  }
+
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+}
+
+function buildSpark(samples: RawHistorySample[]) {
+  if (!samples.length) {
+    return { line: "", area: "", dots: [] as Array<{ x: number; y: number }> };
+  }
+
+  const width = 240;
+  const baseline = 54;
+  const step = samples.length > 1 ? width / (samples.length - 1) : width;
+  const latencies = samples
+    .map((sample) => sample.latencyMs)
+    .filter((value): value is number => Number.isFinite(value));
+  const maxLatency = latencies.length ? Math.max(...latencies, 800) : 800;
+  const points = samples.map((sample, index) => {
+    const x = step * index;
+    const y = sample.state === "down"
+      ? baseline
+      : 18 + ((Math.min(sample.latencyMs || maxLatency, maxLatency) / maxLatency) * 24);
+    return { x, y, down: sample.state === "down" };
+  });
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
+
+  return {
+    line: path,
+    area: `${path} L 240 54 L 0 54 Z`,
+    dots: points.filter((point) => point.down).map(({ x, y }) => ({ x, y }))
+  };
+}
+
+function buildRows(initialSites: SiteConfig[], dashboard: DashboardPayload | null, query: string): SiteRow[] {
+  const monitor = dashboard?.monitor;
+  const keyword = query.trim().toLowerCase();
+  const sites = keyword
+    ? initialSites.filter((site) => [site.id, site.name, site.url].some((value) => value.toLowerCase().includes(keyword)))
+    : initialSites;
+  const latestMap = new Map<string, HealthResult>(
+    (monitor?.latest?.results || []).map((result) => [result.id, result])
+  );
+
+  return sites.map((site) => {
+    const rawSamples: RawHistorySample[] = monitor?.rawHistoryBySite[site.id] || [];
+    const hourly: HourlyAggregate[] = monitor?.hourlyHistoryBySite[site.id] || [];
+    const latest = latestMap.get(site.id) || null;
+    const recentUp = rawSamples.filter((sample) => sample.state === "up").length;
+    const recentUptime = rawSamples.length ? Math.round((recentUp / rawSamples.length) * 100) : null;
+    const hourlyTotal = hourly.reduce((sum, bucket) => sum + bucket.total, 0);
+    const hourlyUp = hourly.reduce((sum, bucket) => sum + bucket.up, 0);
+    const hourlyLatencySum = hourly.reduce((sum, bucket) => sum + bucket.latencySum, 0);
+    const hourlyLatencySamples = hourly.reduce((sum, bucket) => sum + bucket.latencySamples, 0);
+    let failureStreak = 0;
+
+    for (let index = rawSamples.length - 1; index >= 0; index -= 1) {
+      if (rawSamples[index].state === "down") {
+        failureStreak += 1;
+      } else {
+        break;
+      }
+    }
+
+    return {
+      site,
+      latest,
+      rawSamples,
+      hourly,
+      recentUptime,
+      archiveUptime: hourlyTotal ? Math.round((hourlyUp / hourlyTotal) * 100) : null,
+      archiveLatency: hourlyLatencySamples ? Math.round(hourlyLatencySum / hourlyLatencySamples) : null,
+      failureStreak,
+      spark: buildSpark(rawSamples.slice(-24))
+    };
+  });
+}
+
+function playWarningTone() {
+  try {
+    const context = new AudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const now = context.currentTime;
+
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(880, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.3);
+    oscillator.addEventListener("ended", () => void context.close());
+  } catch {
+    // Browsers can block audio until the user has interacted with the page.
+  }
+}
+
+export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }) {
+  const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [nextRunAt, setNextRunAt] = useState<number | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const previousStatesRef = useRef<Map<string, HealthResult["state"]>>(new Map());
+  const lastErrorRef = useRef<string | null>(null);
+  const notificationSequenceRef = useRef(0);
+
+  const dismissNotification = useEffectEvent((id: string) => {
+    setNotifications((current) => current.filter((notification) => notification.id !== id));
+  });
+
+  const showNotification = useEffectEvent((notification: Omit<Notification, "id">, playSound = false) => {
+    notificationSequenceRef.current += 1;
+    const id = `${Date.now()}-${notificationSequenceRef.current}`;
+    setNotifications((current) => [{ ...notification, id }, ...current].slice(0, 4));
+    window.setTimeout(() => dismissNotification(id), 9000);
+
+    if (playSound && settings.soundEnabled) {
+      playWarningTone();
+    }
+  });
+
+  const applyDashboard = useEffectEvent((payload: DashboardPayload) => {
+    const currentStates = new Map(payload.monitor.latest?.results.map((result) => [result.id, result.state]) || []);
+    const hasPreviousSnapshot = previousStatesRef.current.size > 0;
+
+    if (hasPreviousSnapshot) {
+      payload.monitor.latest?.results.forEach((result) => {
+        const previousState = previousStatesRef.current.get(result.id);
+        if (previousState !== "down" && result.state === "down") {
+          showNotification({
+            tone: "danger",
+            title: "사이트 장애 감지",
+            message: `${result.name}: ${result.statusCode ? `HTTP ${result.statusCode}` : result.detail}`
+          }, true);
+        }
+
+        if (previousState === "down" && result.state === "up") {
+          showNotification({
+            tone: "success",
+            title: "사이트 복구",
+            message: `${result.name}이(가) 정상 응답으로 복구되었습니다.`
+          });
+        }
+      });
+    }
+
+    previousStatesRef.current = currentStates;
+    lastErrorRef.current = null;
+    setDashboard(payload);
+    setError(null);
+  });
+
+  const showRequestError = useEffectEvent((nextError: unknown) => {
+    const message = nextError instanceof Error ? nextError.message : "알 수 없는 오류";
+    setError(message);
+
+    if (lastErrorRef.current !== message) {
+      showNotification({
+        tone: "danger",
+        title: "점검 연결 오류",
+        message
+      }, true);
+      lastErrorRef.current = message;
+    }
+  });
+
+  useEffect(() => {
+    setSettings(loadSettings());
+  }, []);
+
+  useEffect(() => {
+    saveSettings(settings);
+  }, [settings]);
+
+  const fetchDashboard = useEffectEvent(async () => {
+    try {
+      const response = await fetch("/api/health", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`대시보드 조회 실패 (${response.status})`);
+      }
+      const payload = (await response.json()) as DashboardPayload;
+      applyDashboard(payload);
+    } catch (nextError) {
+      showRequestError(nextError);
+    }
+  });
+
+  const runManualCheck = useEffectEvent(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/health?timeout=${settings.timeoutMs}`, {
+        method: "POST",
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        throw new Error(`점검 실행 실패 (${response.status})`);
+      }
+
+      const payload = (await response.json()) as DashboardPayload;
+      applyDashboard(payload);
+      setNextRunAt(Date.now() + settings.intervalMs);
+    } catch (nextError) {
+      showRequestError(nextError);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  useEffect(() => {
+    void fetchDashboard();
+  }, [fetchDashboard]);
+
+  useEffect(() => {
+    if (!settings.autoRefresh) {
+      setNextRunAt(null);
+      return;
+    }
+
+    void fetchDashboard();
+    setNextRunAt(Date.now() + settings.intervalMs);
+    const intervalId = window.setInterval(() => {
+      void fetchDashboard();
+      setNextRunAt(Date.now() + settings.intervalMs);
+    }, settings.intervalMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchDashboard, settings.autoRefresh, settings.intervalMs]);
+
+  useEffect(() => {
+    if (!settings.autoRefresh) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setNextRunAt((current) => current);
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [settings.autoRefresh]);
+
+  const rows = buildRows(initialSites, dashboard, query);
+  const downRows = rows.filter((row) => row.latest?.state === "down");
+  const latest = dashboard?.monitor.latest;
+  const latestResults: HealthResult[] = latest?.results || [];
+  const upCount = latest?.summary.up || 0;
+  const downCount = latest?.summary.down || 0;
+  const rawHistoryBySite: Record<string, RawHistorySample[]> = dashboard?.monitor.rawHistoryBySite || {};
+  const hourlyHistoryBySite: Record<string, HourlyAggregate[]> = dashboard?.monitor.hourlyHistoryBySite || {};
+  const recentAlerts: AlertEvent[] = dashboard?.monitor.recentAlerts || [];
+  const rawCount = Object.values(rawHistoryBySite).reduce((sum, samples) => sum + samples.length, 0);
+  const archiveCount = Object.values(hourlyHistoryBySite).reduce((sum, buckets) => sum + buckets.length, 0);
+  const allBuckets: HourlyAggregate[] = Object.values(hourlyHistoryBySite).flat();
+  const archiveTotal = allBuckets.reduce((sum, bucket) => sum + bucket.total, 0);
+  const archiveUp = allBuckets.reduce((sum, bucket) => sum + bucket.up, 0);
+
+  return (
+    <main className="page-shell">
+      <div className="toast-region" aria-live="assertive" aria-atomic="false">
+        {notifications.map((notification) => (
+          <div className={`toast toast-${notification.tone}`} key={notification.id} role="alert">
+            <div>
+              <strong>{notification.title}</strong>
+              <p>{notification.message}</p>
+            </div>
+            <button type="button" aria-label="알림 닫기" onClick={() => dismissNotification(notification.id)}>×</button>
+          </div>
+        ))}
+      </div>
+      <section className="hero-panel">
+        <div className="hero-copy">
+          <span className="eyebrow">Server DB + Alerts</span>
+          <h1>경영정보 고객사이트 PulseBoard</h1>
+          <p>
+            서버가 사이트를 점검하고 저장소에 이력을 누적합니다. 프론트는 그 결과를 조회하고, 장애나 복구 같은 이벤트는
+            텔레그램으로 발송할 수 있도록 분리된 구조입니다.
+          </p>
+        </div>
+        <div className="hero-grid">
+          <div className="hero-stat">
+            <span>배포 버전</span>
+            <strong>{APP_VERSION}</strong>
+          </div>
+          <div className="hero-stat">
+            <span>마지막 저장 시각</span>
+            <strong>{formatTime(dashboard?.monitor.updatedAt ?? null)}</strong>
+          </div>
+          <div className="hero-stat">
+            <span>스토리지</span>
+            <strong>{dashboard?.storage.provider === "upstash-rest" ? "Upstash Redis" : "Memory"}</strong>
+          </div>
+          <div className="hero-stat">
+            <span>텔레그램 알림</span>
+            <strong>{dashboard?.alerting.telegramConfigured ? "연결됨" : "미설정"}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="sticky-bar">
+        <div className="sticky-metric">
+          <span>정상</span>
+          <strong>{upCount}</strong>
+        </div>
+        <div className="sticky-metric">
+          <span>장애</span>
+          <strong>{downCount}</strong>
+        </div>
+        <div className="sticky-metric">
+          <span>검색 결과</span>
+          <strong>{rows.length}</strong>
+        </div>
+        <div className="sticky-metric">
+          <span>다음 조회</span>
+          <strong>{settings.autoRefresh ? formatCountdown(nextRunAt ? nextRunAt - Date.now() : null) : "멈춤"}</strong>
+        </div>
+      </section>
+
+      <section className="toolbar-panel">
+        <label className="search-field">
+          <span>검색</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="사이트 이름, id, URL" />
+        </label>
+
+        <label className="select-field">
+          <span>조회 주기</span>
+          <select value={settings.intervalMs} onChange={(event) => setSettings((previous) => ({ ...previous, intervalMs: Number(event.target.value) }))}>
+            <option value={60000}>1분</option>
+            <option value={180000}>3분</option>
+            <option value={300000}>5분</option>
+            <option value={600000}>10분</option>
+          </select>
+        </label>
+
+        <label className="select-field">
+          <span>체크 타임아웃</span>
+          <select value={settings.timeoutMs} onChange={(event) => setSettings((previous) => ({ ...previous, timeoutMs: Number(event.target.value) }))}>
+            <option value={4000}>4초</option>
+            <option value={8000}>8초</option>
+            <option value={12000}>12초</option>
+            <option value={16000}>16초</option>
+          </select>
+        </label>
+
+        <button className="primary-button" type="button" onClick={() => void runManualCheck()} disabled={loading}>
+          {loading ? "점검 중..." : "지금 점검"}
+        </button>
+
+        <button className="secondary-button" type="button" onClick={() => setSettings((previous) => ({ ...previous, autoRefresh: !previous.autoRefresh }))}>
+          {settings.autoRefresh ? "자동 조회 멈춤" : "자동 조회 시작"}
+        </button>
+        <button
+          className="secondary-button"
+          type="button"
+          aria-pressed={settings.soundEnabled}
+          onClick={() => setSettings((previous) => ({ ...previous, soundEnabled: !previous.soundEnabled }))}
+        >
+          {settings.soundEnabled ? "경고음 켬" : "경고음 끔"}
+        </button>
+      </section>
+
+      {downRows.length ? (
+        <section className="incident-banner" role="alert">
+          <strong>장애 경고 · {downRows.length}개 사이트 점검 실패</strong>
+          <span>{downRows.map((row) => row.site.name).join(", ")}</span>
+        </section>
+      ) : null}
+      {error ? <p className="status-banner danger">{error}</p> : null}
+      <p className="status-banner">
+        수동 점검은 서버에서 실행되고 결과도 서버 저장소에 반영됩니다. 상시 모니터링과 텔레그램 이벤트 알림은
+        <code> /api/cron/health </code>
+        엔드포인트를 통해 수행하도록 설계했습니다.
+      </p>
+
+      <section className="summary-grid">
+        <article className="summary-card">
+          <span>현재 가용 비율</span>
+          <strong>{latestResults.length ? formatPercent((upCount / latestResults.length) * 100) : "-"}</strong>
+        </article>
+        <article className="summary-card">
+          <span>30일 집계 정상률</span>
+          <strong>{archiveTotal ? formatPercent((archiveUp / archiveTotal) * 100) : "-"}</strong>
+        </article>
+        <article className="summary-card">
+          <span>원본 샘플 수</span>
+          <strong>{rawCount}개</strong>
+        </article>
+        <article className="summary-card">
+          <span>시간 집계 수</span>
+          <strong>{archiveCount}칸</strong>
+        </article>
+      </section>
+
+      <section className="content-grid">
+        <div className="cards-grid">
+          {rows.map((row) => (
+            <article className="site-card" key={row.site.id}>
+              <div className="site-head">
+                <div>
+                  <h2>{row.site.name}</h2>
+                  <p>{row.site.url}</p>
+                </div>
+                <span className={`status-pill ${row.latest?.state ?? "idle"}`}>
+                  {row.latest?.state === "up" ? "정상" : row.latest?.state === "down" ? "장애" : "대기"}
+                </span>
+              </div>
+
+              <div className="meta-row">
+                <span>{row.site.id}</span>
+                <span>{row.latest?.statusCode ? `HTTP ${row.latest.statusCode}` : row.latest?.detail === "timeout" ? "타임아웃" : "미점검"}</span>
+                <span>30일 {formatPercent(row.archiveUptime)}</span>
+              </div>
+
+              <div className="metric-row">
+                <div className="metric-box">
+                  <span>마지막 응답</span>
+                  <strong>{formatLatency(row.latest?.latencyMs ?? null)}</strong>
+                </div>
+                <div className="metric-box">
+                  <span>최근 정상률</span>
+                  <strong>{formatPercent(row.recentUptime)}</strong>
+                </div>
+                <div className="metric-box">
+                  <span>연속 실패</span>
+                  <strong>{row.failureStreak}회</strong>
+                </div>
+              </div>
+
+              <div className="spark-panel">
+                <div className="spark-head">
+                  <span>최근 {Math.min(row.rawSamples.length, 24)}회 추세</span>
+                  <span>{formatTime(row.latest?.checkedAt ?? null)}</span>
+                </div>
+                <svg viewBox="0 0 240 64" preserveAspectRatio="none" aria-hidden="true">
+                  <line x1="0" y1="54" x2="240" y2="54" className="spark-axis" />
+                  {row.spark.area ? <path d={row.spark.area} className="spark-area" /> : null}
+                  {row.spark.line ? <path d={row.spark.line} className="spark-line" /> : null}
+                  {row.spark.dots.map((dot, index) => (
+                    <circle key={`${row.site.id}-${index}`} cx={dot.x} cy={dot.y} r="2.8" className="spark-dot" />
+                  ))}
+                </svg>
+              </div>
+
+              <div className="archive-strip">
+                <div>
+                  <span>시간 집계</span>
+                  <strong>{row.hourly.length}칸</strong>
+                </div>
+                <div>
+                  <span>누적 점검</span>
+                  <strong>{row.hourly.reduce((sum, bucket) => sum + bucket.total, 0)}회</strong>
+                </div>
+                <div>
+                  <span>집계 평균</span>
+                  <strong>{formatLatency(row.archiveLatency)}</strong>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <aside className="side-stack">
+          <section className="side-panel">
+            <h2>운영 상태</h2>
+            <div className="registry-list">
+              <div className="registry-item">
+                <strong>스토리지 연결</strong>
+                <span>{dashboard?.storage.connected ? "연결됨" : "메모리 모드"}</span>
+                <code>{dashboard?.storage.provider ?? "memory"}</code>
+              </div>
+              <div className="registry-item">
+                <strong>크론 인증</strong>
+                <span>{dashboard?.alerting.cronConfigured ? "설정됨" : "미설정"}</span>
+                <code>CRON_SECRET</code>
+              </div>
+              <div className="registry-item">
+                <strong>텔레그램</strong>
+                <span>{dashboard?.alerting.telegramConfigured ? "설정됨" : "미설정"}</span>
+                <code>TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID</code>
+              </div>
+            </div>
+          </section>
+
+          <section className="side-panel">
+            <h2>최근 이벤트 알림</h2>
+            <div className="registry-list">
+              {recentAlerts.slice(0, 8).map((alert) => (
+                <div className="registry-item" key={alert.id}>
+                  <strong>{alert.siteName}</strong>
+                  <span>
+                    {alert.type === "down"
+                      ? "장애 감지"
+                      : alert.type === "failure-threshold"
+                        ? `${alert.failureCount ?? 3}회 연속 실패`
+                        : "복구 감지"}
+                  </span>
+                  <code>{formatTime(alert.checkedAt)} · {alert.message}</code>
+                </div>
+              ))}
+              {recentAlerts.length ? null : (
+                <div className="registry-item">
+                  <strong>이벤트 없음</strong>
+                  <span>아직 장애 또는 복구 이벤트가 없습니다.</span>
+                  <code>크론 실행 후 상태 변화가 생기면 여기에 누적됩니다.</code>
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  );
+}
