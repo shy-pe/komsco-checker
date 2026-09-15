@@ -8,22 +8,6 @@ export const maxDuration = 60;
 export async function GET() {
   const dashboard = await readDashboardPayload();
 
-  if (!dashboard.monitor.latest) {
-    const result = await executeMonitoringCycle({
-      timeoutMs: DEFAULT_TIMEOUT_MS,
-      notify: false
-    });
-
-    return Response.json({
-      monitor: result.store,
-      storage: dashboard.storage,
-      alerting: dashboard.alerting
-    }, {
-      headers: {
-        "cache-control": "no-store"
-      }
-    });
-  }
 
   return Response.json(dashboard, {
     headers: {

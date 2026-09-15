@@ -309,7 +309,7 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
 
   useEffect(() => {
     void fetchDashboard();
-  }, [fetchDashboard]);
+  }, []);
 
   useEffect(() => {
     if (!settings.autoRefresh) {
@@ -327,7 +327,7 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [fetchDashboard, settings.autoRefresh, settings.intervalMs]);
+  }, [settings.autoRefresh, settings.intervalMs]);
 
   useEffect(() => {
     if (!settings.autoRefresh) {
