@@ -26,6 +26,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -376,6 +377,7 @@ code {
 
 .site-card,
 .side-panel {
+  min-width: 0;
   padding: 18px;
   border-radius: 24px;
   background: var(--card);
@@ -404,6 +406,15 @@ code {
 .registry-item code {
   margin: 0;
   color: var(--muted);
+}
+
+.site-head > div,
+.site-head p {
+  min-width: 0;
+}
+
+.site-head p {
+  overflow-wrap: anywhere;
 }
 
 .status-pill {
@@ -542,7 +553,7 @@ code {
   .summary-grid,
   .content-grid,
   .cards-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -570,6 +581,40 @@ code {
 
   .sticky-bar {
     top: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .sticky-metric {
+    min-width: 0;
+    padding: 10px;
+  }
+
+  .metric-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .metric-box {
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .metric-box:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .archive-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .archive-strip > div {
+    min-width: 0;
+    padding: 10px;
   }
 
   .spark-panel svg {
