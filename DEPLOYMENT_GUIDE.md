@@ -5,6 +5,7 @@
 - Frontend: Next.js dashboard
 - Server checks: `app/api/health/route.ts`
 - Scheduled monitoring: GitHub Actions -> `app/api/cron/health/route.ts`
+- Manual/global control: `app/api/control/route.ts`
 - Site registry: `data/sites.json`
 - Server store: Upstash Redis REST env vars
 - Alerts: Telegram Bot API env vars
@@ -12,6 +13,7 @@
 ## Required Environment Variables
 
 - `CRON_SECRET`
+- `DASHBOARD_CONTROL_SECRET`
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
 - `TELEGRAM_BOT_TOKEN`
@@ -35,6 +37,7 @@
 4. The dashboard shows a warning banner, toast, sound, and Telegram alert when an incident is detected.
 5. Recovery is reported to the dashboard and Telegram as well.
 6. Frontend reads the stored monitor state from `/api/health`.
+7. If the dashboard admin secret is used to pause monitoring, cron and manual checks skip new site requests until it is resumed.
 
 ## Notes
 

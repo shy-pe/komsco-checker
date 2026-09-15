@@ -7,9 +7,9 @@ import {
 } from "@/lib/env";
 import { runHealthCheck } from "@/lib/health-check";
 import { getStorageInfo } from "@/lib/kv-store";
-import { loadMonitorStore, mergePayloadIntoStore, saveMonitorStore } from "@/lib/monitor-store";
+import { loadMonitorStore, mergePayloadIntoStore, saveMonitorStore, updateMonitoringControl } from "@/lib/monitor-store";
 import { sendTelegramMessage } from "@/lib/telegram";
-import type { AlertEvent, DashboardPayload, HealthPayload, MonitorStore } from "@/lib/types";
+import type { AlertEvent, DashboardPayload, HealthPayload, MonitorStore, MonitoringControlSource } from "@/lib/types";
 
 function countConsecutiveFailures(store: MonitorStore, siteId: string) {
   const samples = store.rawHistoryBySite[siteId] || [];
@@ -49,8 +49,6 @@ function buildAlertEvents(store: MonitorStore, current: HealthPayload): AlertEve
       });
     }
 
-    // Initial checks count too, so an already-unavailable site receives an
-    // external alert once it has failed the configured number of times.
     if (result.state === "down" && failureCount === ALERT_FAILURE_THRESHOLD) {
       events.push({
         id: `${result.id}-${currentTime}-failure-threshold`,
@@ -64,8 +62,6 @@ function buildAlertEvents(store: MonitorStore, current: HealthPayload): AlertEve
       });
     }
 
-    // A recovery is useful externally only if the failed incident previously
-    // reached the notification threshold.
     if (before?.state === "down" && result.state === "up" && previousFailureCount >= ALERT_FAILURE_THRESHOLD) {
       events.push({
         id: `${result.id}-${currentTime}-recovered`,
@@ -105,13 +101,32 @@ async function notifyTelegram(events: AlertEvent[]) {
   }
 }
 
+export type MonitoringCycleResult = {
+  payload: HealthPayload | null;
+  store: MonitorStore;
+  alerts: AlertEvent[];
+  skipped: boolean;
+  reason: "paused" | null;
+};
+
 export async function executeMonitoringCycle(options?: {
   timeoutMs?: number;
   notify?: boolean;
-}) {
+}): Promise<MonitoringCycleResult> {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const notify = options?.notify ?? false;
   const store = await loadMonitorStore();
+
+  if (!store.control.enabled) {
+    return {
+      payload: null,
+      store,
+      alerts: [],
+      skipped: true,
+      reason: "paused"
+    };
+  }
+
   const payload = await runHealthCheck(timeoutMs);
   const alerts = buildAlertEvents(store, payload);
   const nextStore = mergePayloadIntoStore(store, payload, alerts);
@@ -125,8 +140,21 @@ export async function executeMonitoringCycle(options?: {
   return {
     payload,
     store: nextStore,
-    alerts
+    alerts,
+    skipped: false,
+    reason: null
   };
+}
+
+export async function setMonitoringEnabled(enabled: boolean, source: MonitoringControlSource = "dashboard") {
+  const store = await loadMonitorStore();
+  const result = updateMonitoringControl(store, enabled, source);
+
+  if (result.changed) {
+    await saveMonitorStore(result.store);
+  }
+
+  return result;
 }
 
 export async function readDashboardPayload(): Promise<DashboardPayload> {

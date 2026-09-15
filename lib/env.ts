@@ -1,7 +1,8 @@
-export const APP_VERSION = "v1.2.0";
+export const APP_VERSION = "v1.3.0";
 export const RAW_LIMIT = 180;
 export const ARCHIVE_LIMIT = 24 * 30;
 export const ALERT_LIMIT = 80;
+export const CONTROL_HISTORY_LIMIT = 24;
 export const HOUR_MS = 60 * 60 * 1000;
 export const MONITOR_STORE_KEY = "pulseboard:monitor-store";
 
@@ -25,4 +26,8 @@ export function isTelegramConfigured() {
 
 export function isCronConfigured() {
   return Boolean(process.env.CRON_SECRET);
+}
+
+export function isDashboardControlConfigured() {
+  return Boolean(process.env.DASHBOARD_CONTROL_SECRET);
 }

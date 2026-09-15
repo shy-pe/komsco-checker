@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type {
@@ -6,12 +6,14 @@ import type {
   DashboardPayload,
   HealthResult,
   HourlyAggregate,
+  MonitoringControlEvent,
   RawHistorySample,
   SiteConfig
 } from "@/lib/types";
 
-const APP_VERSION = "v1.2.0";
+const APP_VERSION = "v1.3.0";
 const SETTINGS_KEY = "komsco-next-pulseboard/settings";
+const CONTROL_SECRET_KEY = "komsco-next-pulseboard/control-secret";
 
 type Settings = {
   intervalMs: number;
@@ -61,6 +63,22 @@ function loadSettings(): Settings {
 
 function saveSettings(settings: Settings) {
   window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function loadControlSecret() {
+  try {
+    return window.sessionStorage.getItem(CONTROL_SECRET_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveControlSecret(value: string) {
+  try {
+    window.sessionStorage.setItem(CONTROL_SECRET_KEY, value);
+  } catch {
+    // session storage may be unavailable in hardened browser modes.
+  }
 }
 
 function formatTime(value: string | number | null) {
@@ -195,9 +213,11 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [controlLoading, setControlLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nextRunAt, setNextRunAt] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [controlSecret, setControlSecret] = useState("");
   const previousStatesRef = useRef<Map<string, HealthResult["state"]>>(new Map());
   const lastErrorRef = useRef<string | null>(null);
   const notificationSequenceRef = useRef(0);
@@ -264,11 +284,16 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
 
   useEffect(() => {
     setSettings(loadSettings());
+    setControlSecret(loadControlSecret());
   }, []);
 
   useEffect(() => {
     saveSettings(settings);
   }, [settings]);
+
+  useEffect(() => {
+    saveControlSecret(controlSecret);
+  }, [controlSecret]);
 
   const fetchDashboard = useEffectEvent(async () => {
     try {
@@ -297,13 +322,64 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
         throw new Error(`점검 실행 실패 (${response.status})`);
       }
 
-      const payload = (await response.json()) as DashboardPayload;
+      const payload = (await response.json()) as DashboardPayload & { operation?: { message?: string } };
       applyDashboard(payload);
+      if (payload.operation?.message) {
+        showNotification({
+          tone: payload.monitor.control.enabled ? "success" : "danger",
+          title: "점검 결과",
+          message: payload.operation.message
+        }, false);
+      }
       setNextRunAt(Date.now() + settings.intervalMs);
     } catch (nextError) {
       showRequestError(nextError);
     } finally {
       setLoading(false);
+    }
+  });
+
+  const applyControlState = useEffectEvent(async (enabled: boolean) => {
+    if (!controlSecret.trim()) {
+      showNotification({
+        tone: "danger",
+        title: "관리자 비밀키 필요",
+        message: "일시정지/재개를 하려면 관리자 비밀키를 먼저 입력해야 합니다."
+      }, true);
+      return;
+    }
+
+    setControlLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/control", {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          "content-type": "application/json",
+          "x-dashboard-control-secret": controlSecret.trim()
+        },
+        body: JSON.stringify({ enabled })
+      });
+
+      if (!response.ok) {
+        throw new Error(`제어 실행 실패 (${response.status})`);
+      }
+
+      const payload = (await response.json()) as DashboardPayload & { operation?: { message?: string } };
+      applyDashboard(payload);
+      if (payload.operation?.message) {
+        showNotification({
+          tone: enabled ? "success" : "danger",
+          title: enabled ? "모니터링 재개" : "모니터링 일시정지",
+          message: payload.operation.message
+        }, !enabled);
+      }
+    } catch (nextError) {
+      showRequestError(nextError);
+    } finally {
+      setControlLoading(false);
     }
   });
 
@@ -352,11 +428,13 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
   const rawHistoryBySite: Record<string, RawHistorySample[]> = dashboard?.monitor.rawHistoryBySite || {};
   const hourlyHistoryBySite: Record<string, HourlyAggregate[]> = dashboard?.monitor.hourlyHistoryBySite || {};
   const recentAlerts: AlertEvent[] = dashboard?.monitor.recentAlerts || [];
+  const controlHistory: MonitoringControlEvent[] = dashboard?.monitor.controlHistory || [];
   const rawCount = Object.values(rawHistoryBySite).reduce((sum, samples) => sum + samples.length, 0);
   const archiveCount = Object.values(hourlyHistoryBySite).reduce((sum, buckets) => sum + buckets.length, 0);
   const allBuckets: HourlyAggregate[] = Object.values(hourlyHistoryBySite).flat();
   const archiveTotal = allBuckets.reduce((sum, bucket) => sum + bucket.total, 0);
   const archiveUp = allBuckets.reduce((sum, bucket) => sum + bucket.up, 0);
+  const monitoringEnabled = dashboard?.monitor.control.enabled ?? true;
 
   return (
     <main className="page-shell">
@@ -394,8 +472,8 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
             <strong>{dashboard ? `${dashboard.alerting.monitorIntervalMinutes}분` : "5분"}</strong>
           </div>
           <div className="hero-stat">
-            <span>실시간 알림</span>
-            <strong>{dashboard?.alerting.telegramConfigured ? "연결됨" : "미설정"}</strong>
+            <span>전체 상태</span>
+            <strong>{monitoringEnabled ? "실행 중" : "일시정지"}</strong>
           </div>
         </div>
       </section>
@@ -445,8 +523,8 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
           </select>
         </label>
 
-        <button className="primary-button" type="button" onClick={() => void runManualCheck()} disabled={loading}>
-          {loading ? "점검 중..." : "지금 점검"}
+        <button className="primary-button" type="button" onClick={() => void runManualCheck()} disabled={loading || !monitoringEnabled}>
+          {loading ? "점검 중..." : monitoringEnabled ? "지금 점검" : "일시정지 중"}
         </button>
 
         <button className="secondary-button" type="button" onClick={() => setSettings((previous) => ({ ...previous, autoRefresh: !previous.autoRefresh }))}>
@@ -462,6 +540,31 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
         </button>
       </section>
 
+      <section className="toolbar-panel admin-panel">
+        <label className="search-field">
+          <span>관리자 비밀키</span>
+          <input
+            type="password"
+            value={controlSecret}
+            onChange={(event) => setControlSecret(event.target.value)}
+            placeholder="DASHBOARD_CONTROL_SECRET 입력"
+          />
+        </label>
+        <button className="primary-button" type="button" onClick={() => void applyControlState(true)} disabled={controlLoading || monitoringEnabled}>
+          {controlLoading ? "처리 중..." : "모니터링 재개"}
+        </button>
+        <button className="secondary-button" type="button" onClick={() => void applyControlState(false)} disabled={controlLoading || !monitoringEnabled}>
+          {controlLoading ? "처리 중..." : "모니터링 일시정지"}
+        </button>
+        <div className="registry-item compact-state">
+          <strong>현재 상태</strong>
+          <span>{monitoringEnabled ? "실행 중" : "일시정지"}</span>
+          <code>
+            {dashboard?.monitor.control.updatedAt ? `${formatTime(dashboard.monitor.control.updatedAt)} · ${dashboard.monitor.control.updatedBy ?? "-"}` : "아직 변경 이력 없음"}
+          </code>
+        </div>
+      </section>
+
       {downRows.length ? (
         <section className="incident-banner" role="alert">
           <strong>장애 경고 · {downRows.length}개 사이트 점검 실패</strong>
@@ -472,6 +575,7 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
       <p className="status-banner">
         자동 모니터링 결과는 {dashboard?.alerting.monitorIntervalMinutes ?? 5}분마다 갱신됩니다.
         장애 알림은 {dashboard?.alerting.failureThreshold ?? 1}회 실패 시 발송되며, 복구 상태도 함께 안내합니다.
+        {monitoringEnabled ? " 현재 전체 모니터링은 실행 중입니다." : " 현재 전체 모니터링은 일시정지되어 있습니다."}
       </p>
 
       <section className="summary-grid">
@@ -576,10 +680,30 @@ export function HealthDashboard({ initialSites }: { initialSites: SiteConfig[] }
                 <code>{dashboard?.alerting.monitorIntervalMinutes ?? 5}분 간격</code>
               </div>
               <div className="registry-item">
-                <strong>텔레그램 알림</strong>
-                <span>{dashboard?.alerting.telegramConfigured ? "활성" : "설정 필요"}</span>
-                <code>{dashboard?.alerting.failureThreshold ?? 1}회 실패 시 알림</code>
+                <strong>관리자 제어</strong>
+                <span>{dashboard?.monitor.control.enabled ? "실행 중" : "일시정지"}</span>
+                <code>{dashboard?.monitor.control.updatedAt ? `${formatTime(dashboard.monitor.control.updatedAt)} · ${dashboard.monitor.control.updatedBy ?? "-"}` : "변경 이력 없음"}</code>
               </div>
+            </div>
+          </section>
+
+          <section className="side-panel">
+            <h2>최근 제어 이력</h2>
+            <div className="registry-list">
+              {controlHistory.slice(0, 8).map((event) => (
+                <div className="registry-item" key={event.id}>
+                  <strong>{event.type === "paused" ? "일시정지" : "재개"}</strong>
+                  <span>{event.source}</span>
+                  <code>{formatTime(event.at)} · {event.message}</code>
+                </div>
+              ))}
+              {controlHistory.length ? null : (
+                <div className="registry-item">
+                  <strong>제어 이력 없음</strong>
+                  <span>아직 모니터링을 멈추거나 재개한 적이 없습니다.</span>
+                  <code>관리자 비밀키를 입력하면 이력이 여기에 쌓입니다.</code>
+                </div>
+              )}
             </div>
           </section>
 

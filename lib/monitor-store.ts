@@ -1,6 +1,6 @@
-import { ALERT_LIMIT, APP_VERSION, ARCHIVE_LIMIT, HOUR_MS, MONITOR_STORE_KEY, RAW_LIMIT } from "@/lib/env";
+import { ALERT_LIMIT, APP_VERSION, ARCHIVE_LIMIT, CONTROL_HISTORY_LIMIT, HOUR_MS, MONITOR_STORE_KEY, RAW_LIMIT } from "@/lib/env";
 import { loadJsonValue, saveJsonValue } from "@/lib/kv-store";
-import type { AlertEvent, HealthPayload, MonitorStore, RawHistorySample } from "@/lib/types";
+import type { AlertEvent, HealthPayload, MonitorStore, MonitoringControlEvent, MonitoringControlSource, RawHistorySample } from "@/lib/types";
 
 function createEmptyStore(): MonitorStore {
   return {
@@ -9,6 +9,12 @@ function createEmptyStore(): MonitorStore {
     rawHistoryBySite: {},
     hourlyHistoryBySite: {},
     recentAlerts: [],
+    control: {
+      enabled: true,
+      updatedAt: null,
+      updatedBy: null
+    },
+    controlHistory: [],
     updatedAt: null
   };
 }
@@ -53,12 +59,55 @@ function updateHourly(store: MonitorStore, siteId: string, sample: RawHistorySam
   store.hourlyHistoryBySite[siteId] = existing.slice(-ARCHIVE_LIMIT);
 }
 
+function createControlEvent(enabled: boolean, source: MonitoringControlSource, at: string): MonitoringControlEvent {
+  return {
+    id: `control-${enabled ? "resumed" : "paused"}-${at}`,
+    type: enabled ? "resumed" : "paused",
+    source,
+    message: enabled ? "전체 모니터링을 재개했습니다." : "전체 모니터링을 일시정지했습니다.",
+    at
+  };
+}
+
 export async function loadMonitorStore() {
   return loadJsonValue<MonitorStore>(MONITOR_STORE_KEY, createEmptyStore());
 }
 
 export async function saveMonitorStore(store: MonitorStore) {
   await saveJsonValue(MONITOR_STORE_KEY, store);
+}
+
+export function updateMonitoringControl(
+  store: MonitorStore,
+  enabled: boolean,
+  source: MonitoringControlSource,
+  at = new Date().toISOString()
+) {
+  if (store.control.enabled === enabled) {
+    return {
+      store,
+      changed: false,
+      event: null
+    };
+  }
+
+  const event = createControlEvent(enabled, source, at);
+  const nextStore: MonitorStore = {
+    ...store,
+    version: APP_VERSION,
+    control: {
+      enabled,
+      updatedAt: at,
+      updatedBy: source
+    },
+    controlHistory: [event, ...store.controlHistory].slice(0, CONTROL_HISTORY_LIMIT)
+  };
+
+  return {
+    store: nextStore,
+    changed: true,
+    event
+  };
 }
 
 export function mergePayloadIntoStore(store: MonitorStore, payload: HealthPayload, alerts: AlertEvent[]) {

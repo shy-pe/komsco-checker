@@ -1,4 +1,4 @@
-﻿export type SiteConfig = {
+export type SiteConfig = {
   id: string;
   name: string;
   url: string;
@@ -64,13 +64,40 @@ export type AlertEvent = {
   failureCount?: number;
 };
 
+export type MonitoringControlSource = "dashboard" | "cron" | "manual" | "system";
+
+export type MonitoringControlEvent = {
+  id: string;
+  type: "paused" | "resumed";
+  source: MonitoringControlSource;
+  message: string;
+  at: string;
+};
+
+export type MonitoringControlState = {
+  enabled: boolean;
+  updatedAt: string | null;
+  updatedBy: MonitoringControlSource | null;
+};
+
 export type MonitorStore = {
   version: string;
   latest: HealthPayload | null;
   rawHistoryBySite: Record<string, RawHistorySample[]>;
   hourlyHistoryBySite: Record<string, HourlyAggregate[]>;
   recentAlerts: AlertEvent[];
+  control: MonitoringControlState;
+  controlHistory: MonitoringControlEvent[];
   updatedAt: string | null;
+};
+
+export type MonitoringOperation = {
+  source: MonitoringControlSource;
+  enabled: boolean;
+  changed: boolean;
+  skipped: boolean;
+  reason: "paused" | null;
+  message: string;
 };
 
 export type DashboardPayload = {

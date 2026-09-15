@@ -27,11 +27,21 @@ export async function GET(request: Request) {
     notify: true
   });
 
+  if (result.skipped) {
+    return Response.json({
+      ok: true,
+      paused: true,
+      skipped: true,
+      reason: result.reason,
+      message: "Monitoring is paused."
+    });
+  }
+
   return Response.json({
     ok: true,
-    checkedAt: result.payload.summary.checkedAt,
+    checkedAt: result.payload?.summary.checkedAt,
     alerts: result.alerts.length,
-    up: result.payload.summary.up,
-    down: result.payload.summary.down
+    up: result.payload?.summary.up ?? 0,
+    down: result.payload?.summary.down ?? 0
   });
 }
