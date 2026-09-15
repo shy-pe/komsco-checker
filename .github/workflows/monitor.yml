@@ -1,0 +1,35 @@
+name: Service monitoring
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: service-monitoring
+  cancel-in-progress: false
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call KOMSCO Service Monitor
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          MONITOR_TIMEOUT_MS: ${{ vars.MONITOR_TIMEOUT_MS || '8000' }}
+        shell: bash
+        run: |
+          if [[ -z "$CRON_SECRET" ]]; then
+            echo "CRON_SECRET repository secret is required."
+            exit 1
+          fi
+
+          curl \
+            --fail-with-body \
+            --show-error \
+            --silent \
+            --max-time 90 \
+            --retry 2 \
+            --retry-delay 10 \
+            --retry-all-errors \
