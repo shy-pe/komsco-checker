@@ -25,11 +25,4 @@ jobs:
             exit 1
           fi
 
-          curl \
-            --fail-with-body \
-            --show-error \
-            --silent \
-            --max-time 90 \
-            --retry 2 \
-            --retry-delay 10 \
-            --retry-all-errors \
+          curl --fail-with-body --show-error --silent --max-time 90 --retry 2 --retry-delay 10 --retry-all-errors --header "Authorization: Bearer $CRON_SECRET" "https://komsco-checker.vercel.app/api/cron/health?timeout=${MONITOR_TIMEOUT_MS}"
