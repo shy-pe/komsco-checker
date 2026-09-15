@@ -18,5 +18,20 @@
     "id": "webmail",
     "name": "웹메일",
     "url": "https://mail.komsco.com"
+  },
+  {
+    "id": "koin",
+    "name": "모바일코인",
+    "url": "https://vmi.komsco.com/html/download/download.html"
+  },
+  {
+    "id": "poid",
+    "name": "공무원증발급",
+    "url": "https://poid.komsco.com"
+  },
+  {
+    "id": "epro",
+    "name": "구매관리",
+    "url": "https://epro.komsco.com"
   }
 ]
