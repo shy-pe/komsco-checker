@@ -1,5 +1,5 @@
-﻿import { DEFAULT_TIMEOUT_MS } from "@/lib/env";
-import { ALERT_FAILURE_THRESHOLD, MONITOR_INTERVAL_MINUTES } from "@/lib/env";
+import { DEFAULT_TIMEOUT_MS, ALERT_FAILURE_THRESHOLD, MONITOR_INTERVAL_MINUTES } from "@/lib/env";
+import { getStorageInfo } from "@/lib/kv-store";
 import { executeMonitoringCycle, readDashboardPayload } from "@/lib/monitoring";
 
 export const dynamic = "force-dynamic";
@@ -7,7 +7,6 @@ export const maxDuration = 60;
 
 export async function GET() {
   const dashboard = await readDashboardPayload();
-
 
   return Response.json(dashboard, {
     headers: {
@@ -27,10 +26,7 @@ export async function POST(request: Request) {
 
   return Response.json({
     monitor: result.store,
-    storage: {
-      provider: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL ? "upstash-rest" : "memory",
-      connected: Boolean(process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL)
-    },
+    storage: getStorageInfo(),
     alerting: {
       telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID),
       cronConfigured: Boolean(process.env.CRON_SECRET),

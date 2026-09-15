@@ -9,6 +9,7 @@ function getMemoryStore() {
   if (!globalThis.__pulseboardMemoryStore) {
     globalThis.__pulseboardMemoryStore = new Map<string, string>();
   }
+
   return globalThis.__pulseboardMemoryStore;
 }
 
@@ -46,6 +47,18 @@ async function runRedisCommand(command: unknown[]) {
   return response.json() as Promise<{ result?: unknown; error?: string }>;
 }
 
+function safeParseJson<T>(raw: string | null, fallback: T) {
+  if (!raw) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function getStorageInfo() {
   const configured = Boolean(getUpstashConfig());
   return {
@@ -58,16 +71,20 @@ export async function loadJsonValue<T>(key: string, fallback: T): Promise<T> {
   const config = getUpstashConfig();
 
   if (!config) {
-    const raw = getMemoryStore().get(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    return safeParseJson(getMemoryStore().get(key) ?? null, fallback);
   }
 
-  const payload = await runRedisCommand(["GET", key]);
-  if (!payload.result || typeof payload.result !== "string") {
-    return fallback;
-  }
+  try {
+    const payload = await runRedisCommand(["GET", key]);
+    if (!payload.result || typeof payload.result !== "string") {
+      return fallback;
+    }
 
-  return JSON.parse(payload.result) as T;
+    return safeParseJson(payload.result, fallback);
+  } catch (error) {
+    console.warn("Falling back to in-memory KV read.", error);
+    return safeParseJson(getMemoryStore().get(key) ?? null, fallback);
+  }
 }
 
 export async function saveJsonValue(key: string, value: unknown) {
@@ -79,5 +96,10 @@ export async function saveJsonValue(key: string, value: unknown) {
     return;
   }
 
-  await runRedisCommand(["SET", key, raw]);
+  try {
+    await runRedisCommand(["SET", key, raw]);
+  } catch (error) {
+    console.warn("Falling back to in-memory KV write.", error);
+    getMemoryStore().set(key, raw);
+  }
 }
